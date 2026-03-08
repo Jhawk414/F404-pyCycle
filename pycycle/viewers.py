@@ -43,8 +43,8 @@ def print_flow_station(prob, fs_names, file=sys.stdout):
     names = ['tot:P', 'tot:T', 'tot:h', 'tot:S', 'stat:P', 'stat:W', 'stat:MN', 'stat:V', 'stat:area']
 
     n_names = len(names)
-    line_tmpl = '{:<23}|  '+'{:>13}'*n_names
-    len_header = 27+13*n_names
+    line_tmpl = '{:<23}|'+'{:>11}'*n_names
+    len_header = 25+11*n_names
 
     print("-"*len_header, file=file, flush=True)
     print("                            FLOW STATIONS", file=file, flush=True)
@@ -57,7 +57,7 @@ def print_flow_station(prob, fs_names, file=sys.stdout):
     print('-'*len_header, file=file, flush=True)
 
 
-    line_tmpl = '{:<23.23}|  ' + '{:13.3f}'*n_names
+    line_tmpl = '{:<23.23}|' + '{:11.3f}'*n_names
     for fs_name in fs_names:
         data = []
         for name in names:
@@ -71,19 +71,19 @@ def print_flow_station(prob, fs_names, file=sys.stdout):
 
 def print_compressor(prob, element_names, file=sys.stdout):
 
-    len_header = 17+14*13
+    len_header = 15+14*11
     # print("-"*len_header)
     print("-"*len_header, file=file, flush=True)
     print("                          COMPRESSOR PROPERTIES", file=file, flush=True)
     print("-"*len_header, file=file, flush=True)
 
-    line_tmpl = '{:<14}|  '+'{:>11}'*14
+    line_tmpl = '{:<14}|'+'{:>11}'*14
     print(line_tmpl.format('Compressor', 'Wc', 'Pr', 'eta_a', 'eta_p', 'Nc', 'pwr', 'RlineMap', 'NcMap', 'PRmap', 'WcMap', 'alphaMap', 'SMN', 'SMW', 'effMap'),
           file=file, flush=True)
     print("-"*len_header, file=file, flush=True)
 
 
-    line_tmpl = '{:<14}|  '+'{:11.3f}'*14
+    line_tmpl = '{:<14}|'+'{:11.3f}'*14
     for e_name in element_names:
         sys = prob.model._get_subsystem(e_name)
         if sys.options['design']:
@@ -102,16 +102,16 @@ def print_compressor(prob, element_names, file=sys.stdout):
 
 
 def print_burner(prob, element_names, file=sys.stdout):
-    len_header = 23+4*13
+    len_header = 21+4*11
     print("-"*len_header, file=file, flush=True)
     print("                            BURNER PROPERTIES", file=file, flush=True)
     print("-"*len_header, file=file, flush=True)
 
-    line_tmpl = '{:<20}|  '+'{:>13}'*4
+    line_tmpl = '{:<20}|'+'{:>11}'*4
     print(line_tmpl.format('Burner', 'dPqP', 'TtOut', 'Wfuel', 'FAR'), file=file, flush=True)
 
-    # line_tmpl = '{:<20}|  '+'{:13.3f}'*4
-    line_tmpl = '{:<20}|  {:13.4f}{:13.2f}{:13.4f}{:13.5f}'
+    # line_tmpl = '{:<20}|'+'{:11.3f}'*4
+    line_tmpl = '{:<20}|{:11.4f}{:11.2f}{:11.4f}{:11.5f}'
 
     for e_name in element_names:
 
@@ -130,17 +130,17 @@ def print_burner(prob, element_names, file=sys.stdout):
 
 def print_turbine(prob, element_names, file=sys.stdout):
 
-    len_header = 17+9*13
+    len_header = 15+9*11
     print("-"*len_header, file=file, flush=True)
     print("                            TURBINE PROPERTIES", file=file, flush=True)
     print("-"*len_header, file=file, flush=True)
 
-    line_tmpl = '{:<14}|  '+'{:>13}'*9
+    line_tmpl = '{:<14}|'+'{:>11}'*9
     print(line_tmpl.format('Turbine', 'Wp', 'PR', 'eff_a', 'eff_p', 'Np', 'pwr', 'NpMap', 'PRmap', 'alphaMap'),
         file=file, flush=True)
 
 
-    line_tmpl = '{:<14}|  '+'{:13.3f}'*9
+    line_tmpl = '{:<14}|'+'{:11.3f}'*9
     for e_name in element_names:
 
         point, _, element = e_name.rpartition(".")
@@ -169,12 +169,12 @@ def print_turbine(prob, element_names, file=sys.stdout):
 
 def print_nozzle(prob, element_names, file=sys.stdout):
 
-    len_header = 17+8*13
+    len_header = 15+8*11
     print("-"*len_header, file=file, flush=True)
     print("                            NOZZLE PROPERTIES", file=file, flush=True)
     print("-"*len_header, file=file, flush=True)
 
-    line_tmpl = '{:<14}|  '+'{:>13}'*8
+    line_tmpl = '{:<14}|'+'{:>11}'*8
     print(line_tmpl.format('Nozzle', 'PR', 'Cv', 'Cfg', 'Ath', 'MNth', 'MNout', 'V', 'Fg'), file=file, flush=True)
 
 
@@ -186,13 +186,13 @@ def print_nozzle(prob, element_names, file=sys.stdout):
         if sys.options['lossCoef'] == 'Cv':
 
             Cv_val = get_val(prob, point, element, 'Cv')
-            Cfg_val = '        N/A  '
-            line_tmpl = '{:<14}|  ' + '{:13.3f}'*2 + '{}' + '{:13.3f}'*5
+            Cfg_val = '        N/A'
+            line_tmpl = '{:<14}|' + '{:11.3f}'*2 + '{}' + '{:11.3f}'*5
 
         else:
-            Cv_val = '        N/A  '
+            Cv_val = '        N/A'
             Cfg_val = get_val(prob, point, element, 'Cfg')
-            line_tmpl = '{:<14}|  ' + '{:13.3f}'*1 + '{}' + '{:13.3f}'*6
+            line_tmpl = '{:<14}|' + '{:11.3f}'*1 + '{}' + '{:11.3f}'*6
 
         PR = get_val(prob, point, element, 'PR')
         area = get_val(prob, point, element, 'Throat:stat:area')
@@ -218,16 +218,16 @@ def print_bleed(prob, element_names, file=sys.stdout):
 
     max_name_len += 2
 
-    len_header = max_name_len+3+7*13
+    len_header = max_name_len+1+7*11
     print("-"*len_header, file=file, flush=True)
     print("                            BLEED PROPERTIES", file=file, flush=True)
     print("-"*len_header, file=file, flush=True)
 
     max_name_len = str(max_name_len)
-    line_tmpl = '{:<'+max_name_len+'}|  '+'{:>13}'*7
+    line_tmpl = '{:<'+max_name_len+'}|'+'{:>11}'*7
     print(line_tmpl.format('Bleed', 'Wb/Win', 'Pfrac', 'Workfrac', 'W', 'Tt', 'ht', 'Pt'), file=file, flush=True)
 
-    line_tmpl = '{:<'+max_name_len+'}|  '+'{:13.3f}'*7
+    line_tmpl = '{:<'+max_name_len+'}|'+'{:11.3f}'*7
     for e_name in element_names:
         bleed = prob.model._get_subsystem(e_name)
 
@@ -257,16 +257,16 @@ def print_bleed(prob, element_names, file=sys.stdout):
 
 def print_shaft(prob, element_names, file=sys.stdout):
 
-    len_header = len_header = 23+20*5
+    len_header = 17+15*5
 
     print("-"*len_header, file=file, flush=True)
     print("                            SHAFT PROPERTIES", file=file, flush=True)
     print("-"*len_header, file=file, flush=True)
 
-    line_tmpl = '{:<20}|  '+'{:>20}'*5
+    line_tmpl = '{:<16}|'+'{:>15}'*5
     print(line_tmpl.format('Shaft', 'Nmech', 'trqin', 'trqout', 'pwrin', 'pwrout'), file=file)
 
-    line_tmpl = '{:<20}|  '+'{:20.3f}'*5
+    line_tmpl = '{:<16}|'+'{:15.3f}'*5
     for e_name in element_names:
         print(line_tmpl.format(e_name, prob[e_name+'.Nmech'][0],
                                prob[e_name+'.trq_in'][0],
@@ -278,17 +278,17 @@ def print_shaft(prob, element_names, file=sys.stdout):
 
 def print_mixer(prob, element_names, file=sys.stdout):
 
-    len_header = len_header = 23+20*6
+    len_header = 15+18*5+12
 
     print("-"*len_header, file=file, flush=True)
     print("                            MIXER PROPERTIES", file=file, flush=True)
     print("-"*len_header, file=file, flush=True)
 
-    line_tmpl = '{:<20}|  '+'{:>20}'*6
+    line_tmpl = '{:<14}|'+'{:>18}'*5+'{:>12}'
     print(line_tmpl.format('Mixer', 'balance.P_tot', 'designed_stream', 'Fl_calc:stat:P', 'Fl_calc:stat:area', 'Fl_calc:stat:MN', 'ER'),
           file=file, flush=True)
 
-    line_tmpl = '{:<20}|  {:20.3f}{:^20}'+'{:20.3f}'*3
+    line_tmpl = '{:<14}|{:18.3f}{:^18}'+'{:18.3f}'*3+'{:12.4f}'
     for e_name in element_names:
         mixer = prob.model._get_subsystem(e_name)
         ds = mixer.options['designed_stream']
@@ -296,15 +296,15 @@ def print_mixer(prob, element_names, file=sys.stdout):
             print(line_tmpl.format(e_name, prob[e_name+'.balance.P_tot'][0], 1,
                                    prob[e_name+'.Fl_I1_calc:stat:P'][0],
                                    prob[e_name+'.Fl_I1_calc:stat:area'][0],
-                                   prob[e_name+'.Fl_I1_calc:stat:MN'][0]),
-                                   prob[e_name+'.ER'][0],
+                                   prob[e_name+'.Fl_I1_calc:stat:MN'][0],
+                                   prob[e_name+'.ER'][0]),
                   file=file, flush=True)
         else:
             print(line_tmpl.format(e_name, prob[e_name+'.balance.P_tot'][0], 2,
                                    prob[e_name+'.Fl_I2_calc:stat:P'][0],
                                    prob[e_name+'.Fl_I2_calc:stat:area'][0],
-                                   prob[e_name+'.Fl_I2_calc:stat:MN'][0]),
-                                   prob[e_name+'.ER',][0],
+                                   prob[e_name+'.Fl_I2_calc:stat:MN'][0],
+                                   prob[e_name+'.ER'][0]),
                   file=file, flush=True)
 
 
