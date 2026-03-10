@@ -28,7 +28,7 @@ class MixedFlowTurbofan(pyc.Cycle):
         # Inlet Components
         self.add_subsystem('inlet', pyc.Inlet())
         self.add_subsystem('inlet_duct', pyc.Duct())
-        # Fan Components - Split here for CFD integration Add a CFDStart Compomponent
+        # Fan Components - Split here for CFD integration Add a CFDStart Component
         self.add_subsystem('fan', pyc.Compressor(map_data=pyc.AXI5,
                                              map_extrap=True),promotes_inputs=[('Nmech','LP_Nmech')])
         self.add_subsystem('splitter', pyc.Splitter())
@@ -56,8 +56,7 @@ class MixedFlowTurbofan(pyc.Cycle):
         self.add_subsystem('mixer_duct', pyc.Duct())
         # Afterburner Components
         self.add_subsystem('afterburner', pyc.Combustor(fuel_type=FUEL_TYPE))
-    
-        # End CFD HERE
+
         # Nozzle
         self.add_subsystem('mixed_nozz', pyc.Nozzle(nozzType='CD', lossCoef='Cfg'))
 
@@ -68,7 +67,7 @@ class MixedFlowTurbofan(pyc.Cycle):
         # Aggregating component
         self.add_subsystem('perf', pyc.Performance(num_nozzles=1, num_burners=2))
 
-        # Connnect flow path
+        # Connect flow paths
         self.pyc_connect_flow('fc.Fl_O', 'inlet.Fl_I')
         self.pyc_connect_flow('inlet.Fl_O', 'inlet_duct.Fl_I')
         self.pyc_connect_flow('inlet_duct.Fl_O', 'fan.Fl_I')
@@ -76,11 +75,12 @@ class MixedFlowTurbofan(pyc.Cycle):
         # Core connections
         self.pyc_connect_flow('splitter.Fl_O1', 'splitter_core_duct.Fl_I') # splitter Fl_O1 goes thru core, Fl_O2 is bypass
         self.pyc_connect_flow('splitter_core_duct.Fl_O', 'hpc.Fl_I') # connect to hpc.Fl_I
-        # self.pyc_connect_flow('lpc.Fl_O', 'lpc_duct.Fl_I') #delete
-        # self.pyc_connect_flow('lpc_duct.Fl_O', 'hpc.Fl_I') #delete
+
         self.pyc_connect_flow('hpc.Fl_O', 'bld3.Fl_I')
+
         self.pyc_connect_flow('bld3.Fl_O', 'burner.Fl_I')
         self.pyc_connect_flow('burner.Fl_O', 'hpt.Fl_I')
+
         self.pyc_connect_flow('hpt.Fl_O', 'hpt_duct.Fl_I')
         self.pyc_connect_flow('hpt_duct.Fl_O', 'lpt.Fl_I')
         self.pyc_connect_flow('lpt.Fl_O', 'lpt_duct.Fl_I')
@@ -91,7 +91,7 @@ class MixedFlowTurbofan(pyc.Cycle):
 
         #Mixer Connections
         self.pyc_connect_flow('mixer.Fl_O', 'mixer_duct.Fl_I')
-        # After Burner
+        # Afterburner
         self.pyc_connect_flow('mixer_duct.Fl_O','afterburner.Fl_I')
 
         # Nozzle
@@ -179,9 +179,9 @@ class MixedFlowTurbofan(pyc.Cycle):
 
         # Off design
         newton = self.nonlinear_solver = om.NewtonSolver()
-        newton.options['atol'] = 1e-3 #1e-6
-        newton.options['rtol'] = 1e-7 #1e-10
-        newton.options['iprint'] = 2
+        newton.options['atol'] = 1e-5 #1e-6
+        newton.options['rtol'] = 1e-9 #1e-10
+        newton.options['iprint'] = 1 #2
         newton.options['maxiter'] = 10 #10
         newton.options['solve_subsystems'] = True
         newton.options['max_sub_solves'] = 100 #100
@@ -197,7 +197,8 @@ class MixedFlowTurbofan(pyc.Cycle):
 
 
 
-# This class defines many of the design point internal values (general design parameters like internal Mach #s). This class also defines the initial OffDesign points, and transfers the engine characteristics @ Design to the OffDesign points (areas and commpressor maps)
+# This class defines many of the design point internal values (general design parameters like internal Mach #s).
+# This class also defines the initial OffDesign points, and transfers the engine characteristics @ Design to the OffDesign points (areas and compressor maps)
 class MPMixedFlowTurbofan(pyc.MPCycle):
     def setup(self):
 
@@ -223,10 +224,10 @@ class MPMixedFlowTurbofan(pyc.MPCycle):
         self.set_input_defaults('DESIGN.bypass_duct.MN', 0.4463)
         self.set_input_defaults('DESIGN.mixer_duct.MN', 0.4463)
         self.set_input_defaults('DESIGN.afterburner.MN', 0.1025)
-        self.set_input_defaults('DESIGN.LP_Nmech', 4000, units='rpm') # 
+        self.set_input_defaults('DESIGN.LP_Nmech', 10000, units='rpm') #
         self.set_input_defaults('DESIGN.HP_Nmech', 14000, units='rpm') # 
 
-        self.pyc_add_cycle_param('balance.rhs:FAR_ab', 3400 ,units='degR') #OG: 3400
+        self.pyc_add_cycle_param('balance.rhs:FAR_ab', 3400 ,units='degR')
         self.pyc_add_cycle_param('hp_shaft.HPX', 250, units='hp')
         self.pyc_add_cycle_param('inlet.ram_recovery', 0.9990)
         self.pyc_add_cycle_param('inlet_duct.dPqP', 0.0107)
@@ -242,19 +243,21 @@ class MPMixedFlowTurbofan(pyc.MPCycle):
         self.pyc_add_cycle_param('hpc.cool1:frac_W', 0.050708) #0.050708
         self.pyc_add_cycle_param('hpc.cool1:frac_P', 0.5)
         self.pyc_add_cycle_param('hpc.cool1:frac_work', 0.5)
+
         self.pyc_add_cycle_param('bld3.cool3:frac_W', 0.11) #0.067214
         self.pyc_add_cycle_param('hpt.cool3:frac_P', 1.0)
         self.pyc_add_cycle_param('lpt.cool1:frac_P', 1.0)
+        #=======
+        # Define od pts
 
-        # Define Off-Design Points
-            #Original OD point: T4 = 3100, alt=35k, MN=0.8
-        self.od_pts = ['OD_CRZ']
-        self.od_T4s = [3250] # target TiT
+        self.od_pts = ['RTO']
+        self.od_T4s = [3150] # target TiT
         #self.od_T7s = [3620] # target augmentor temperature
-        self.od_Fns = [4020] #target SL thrust
-        self.od_alts = [35000]
-        self.od_MNs = [0.85]
+        self.od_Fns = [17000] #target SL thrust
+        self.od_alts = [0.0]
+        self.od_MNs = [0.1]
 
+        # Define od balances
         for i,pt in enumerate(self.od_pts):
             self.pyc_add_pnt(pt, MixedFlowTurbofan(design=False, thermo_method='TABULAR'))
 
@@ -270,18 +273,17 @@ class MPMixedFlowTurbofan(pyc.MPCycle):
         self.pyc_connect_des_od('fan.s_Wc', 'fan.s_Wc')
         self.pyc_connect_des_od('fan.s_eff', 'fan.s_eff')
         self.pyc_connect_des_od('fan.s_Nc', 'fan.s_Nc')
-        # self.pyc_connect_des_od('lpc.s_PR', 'lpc.s_PR')
-        # self.pyc_connect_des_od('lpc.s_Wc', 'lpc.s_Wc')
-        # self.pyc_connect_des_od('lpc.s_eff', 'lpc.s_eff')
-        # self.pyc_connect_des_od('lpc.s_Nc', 'lpc.s_Nc')
+
         self.pyc_connect_des_od('hpc.s_PR', 'hpc.s_PR')
         self.pyc_connect_des_od('hpc.s_Wc', 'hpc.s_Wc')
         self.pyc_connect_des_od('hpc.s_eff', 'hpc.s_eff')
         self.pyc_connect_des_od('hpc.s_Nc', 'hpc.s_Nc')
+
         self.pyc_connect_des_od('hpt.s_PR', 'hpt.s_PR')
         self.pyc_connect_des_od('hpt.s_Wp', 'hpt.s_Wp')
         self.pyc_connect_des_od('hpt.s_eff', 'hpt.s_eff')
         self.pyc_connect_des_od('hpt.s_Np', 'hpt.s_Np')
+
         self.pyc_connect_des_od('lpt.s_PR', 'lpt.s_PR')
         self.pyc_connect_des_od('lpt.s_Wp', 'lpt.s_Wp')
         self.pyc_connect_des_od('lpt.s_eff', 'lpt.s_eff')
@@ -323,20 +325,17 @@ if __name__ == "__main__":
 
     prob.setup()
 
-    #Define the design point (PROPER!)
+    # Define the design point (PROPER!)
     # This is where we'll tweak the design values to achieve the Off-Design results from emissions DB or publicly available data.
-    prob.set_val('DESIGN.fc.alt', 0.1, units='ft') 
+    prob.set_val('DESIGN.fc.alt', 0.0, units='ft')
     prob.set_val('DESIGN.fc.MN', 0.01)
     
     prob.set_val('DESIGN.balance.rhs:W', 17700, units='lbf') #Target SLS Thrust
-    prob.set_val('DESIGN.balance.rhs:FAR_core', 3200, units='degR') # Target Tt4
-    prob.set_val('DESIGN.balance.rhs:FAR_ab', 3600, units='degR') # Target Tt7
+    prob.set_val('DESIGN.balance.rhs:FAR_core', 3100, units='degR') # Target Tt4
+    #prob.set_val('DESIGN.balance.rhs:FAR_ab', 3500, units='degR') # Target Tt7
     
     prob.set_val('DESIGN.fan.PR', 4.1)
     prob.set_val('DESIGN.fan.eff', 0.8948)
-    
-    # prob.set_val('DESIGN.lpc.PR', 1.9)
-    # prob.set_val('DESIGN.lpc.eff', 0.9243)
     
     prob.set_val('DESIGN.hpc.PR', 6.5)
     prob.set_val('DESIGN.hpc.eff', 0.8707)
@@ -348,14 +347,14 @@ if __name__ == "__main__":
     prob['DESIGN.fc.balance.Pt'] = 5.3
     prob['DESIGN.fc.balance.Tt'] = 450
 
-    prob['DESIGN.balance.W'] = 146.0
+    prob['DESIGN.balance.W'] = 120.0
     prob['DESIGN.balance.BPR'] = 0.34
 
     prob['DESIGN.balance.FAR_core'] = 0.025
-    prob['DESIGN.balance.FAR_ab'] = 0.04 #0.025
+    prob['DESIGN.balance.FAR_ab'] = 0.0375
     
-    prob['DESIGN.balance.hpt_PR'] = 2.5506 #
-    prob['DESIGN.balance.lpt_PR'] = 3.5 #
+    prob['DESIGN.balance.hpt_PR'] = 2.5506
+    prob['DESIGN.balance.lpt_PR'] = 3.55 #3.5
 
     prob['DESIGN.mixer.balance.P_tot']= 20
 
@@ -368,44 +367,25 @@ if __name__ == "__main__":
         prob[pt+'.balance.FAR_core'] = 0.025
         prob[pt+'.balance.FAR_ab'] = 0.025
         prob[pt+'.balance.BPR'] = 0.35 #2.5
-        prob[pt+'.balance.W'] = 50. #50
-        prob[pt+'.balance.HP_Nmech'] = 14000
-        prob[pt+'.balance.LP_Nmech'] = 4000
+        prob[pt+'.balance.W'] = 100
+        prob[pt+'.balance.HP_Nmech'] = 15000
+        prob[pt+'.balance.LP_Nmech'] = 10000
         
         prob[pt+'.mixer.balance.P_tot']= 18 #OG: 15
         prob[pt+'.hpt.PR'] = 2.523 #
         prob[pt+'.lpt.PR'] = 2.401 #
         
         prob[pt+'.fan.map.RlineMap'] = 2.0
-        # prob[pt+'.lpc.map.RlineMap'] = 2.0
         prob[pt+'.hpc.map.RlineMap'] = 2.0
 
     st = time.time()
 
-    prob.set_solver_print(level=-1) # OG: -1
-    prob.set_solver_print(level=2, depth=1) # OG: level = 2, depth = 1
+    prob.set_solver_print(level=-1)
+    prob.set_solver_print(level=2, depth=1)
 
     prob.run_model()
-    #page_viewer('DESIGN')
-
    
     for pt in ['DESIGN']+mp_mixedflow.od_pts:
         page_viewer(prob, pt)
 
     print(); print("time", time.time() - st)
-
-
-
-
-
-
-    # for T in [3200, 3100, 3000]:
-    #     prob['balance.rhs:FAR_ab'] = T
-
-    #     prob.run_model()
-
-    #     page_viewer('OD')
-
-    # print()
-    # print("time", time.time() - st)
-
