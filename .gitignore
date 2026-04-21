@@ -4,6 +4,10 @@
 *~
 .DS_Store
 .dropbox
-pycycle.egg-info/*
+*.egg-info/
 /build*
 *testflo_report.out
+.venv/
+__pycache__/
+/MFTF_od_CRZ_out/
+.gitignore
