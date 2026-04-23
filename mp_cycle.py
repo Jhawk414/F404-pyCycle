@@ -5,12 +5,21 @@ from engine_model import MixedFlowTurbofan
 
 class MPMixedFlowTurbofan(pyc.MPCycle):
 
+    def initialize(self):
+        self.options.declare('afterburn', default=True, types=bool,
+                             desc='True = wet/AB mode (FAR_ab balance active). '
+                                  'False = dry mode (afterburner FAR fixed at 0).')
+        super().initialize()
+
     def setup(self):
+        afterburn = self.options['afterburn']
 
         # Create design instance of model
-        self.pyc_add_pnt('DESIGN', MixedFlowTurbofan(design=True, thermo_method='TABULAR'))
+        self.pyc_add_pnt('DESIGN', MixedFlowTurbofan(design=True, thermo_method='TABULAR', afterburn=afterburn))
 
-        self.set_input_defaults('DESIGN.balance.rhs:BPR', 0.34, units=None) # defined as 1 over 2 (# 1.05)
+        # BPR balance drives mixer.ER (= Pt_core/Pt_bypass) to 1.0 — equal total
+        # pressures at mixer inlet. The actual BPR falls out of the thermodynamics.
+        self.set_input_defaults('DESIGN.balance.rhs:BPR', 1.0, units=None)
         self.set_input_defaults('DESIGN.inlet.MN', 0.751)
         self.set_input_defaults('DESIGN.inlet_duct.MN', 0.4463)
         self.set_input_defaults('DESIGN.fan.MN', 0.4578)
@@ -33,7 +42,9 @@ class MPMixedFlowTurbofan(pyc.MPCycle):
         self.set_input_defaults('DESIGN.HP_Nmech', 14000, units='rpm')
 
         # Cycle parameters shared across all points
-        self.pyc_add_cycle_param('balance.rhs:FAR_ab', 3400 ,units='degR')
+        # NOTE: balance.rhs:FAR_ab is intentionally NOT a cycle param so that
+        # DESIGN T7 and OD T7 can be set independently. Set via prob.set_val()
+        # in the calling script (wet mode only).
         self.pyc_add_cycle_param('hp_shaft.HPX', 250, units='hp')
         self.pyc_add_cycle_param('inlet.ram_recovery', 0.9990)
         self.pyc_add_cycle_param('inlet_duct.dPqP', 0.0107)
@@ -56,7 +67,7 @@ class MPMixedFlowTurbofan(pyc.MPCycle):
 
         # Single generic OD point — conditions set by calling script via prob.set_val()
         self.od_pt = 'OD'
-        self.pyc_add_pnt(self.od_pt, MixedFlowTurbofan(design=False, thermo_method='TABULAR'))
+        self.pyc_add_pnt(self.od_pt, MixedFlowTurbofan(design=False, thermo_method='TABULAR', afterburn=afterburn))
 
         # Map scalars: transfer design compressor/turbine map scaling to OD
         self.pyc_connect_des_od('fan.s_PR', 'fan.s_PR')

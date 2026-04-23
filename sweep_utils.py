@@ -84,7 +84,7 @@ def generate_bridge_points(pt_from, pt_to, n_steps):
     return bridges
 
 
-def extract_od_results(prob, pt):
+def extract_od_results(prob, pt, afterburn=True):
     """
     Extract key performance parameters from a converged OD solution.
 
@@ -94,6 +94,9 @@ def extract_od_results(prob, pt):
         The solved problem.
     pt : str
         Point name (e.g. 'OD').
+    afterburn : bool
+        True if the problem was built with afterburn=True (FAR_ab balance exists).
+        False for dry mode — FAR_ab is reported as 0.0.
 
     Returns
     -------
@@ -110,7 +113,7 @@ def extract_od_results(prob, pt):
         'W':         float(prob.get_val(f'{pt}.balance.W', units='lbm/s')),
         'BPR':       float(prob.get_val(f'{pt}.balance.BPR')),
         'FAR_core':  float(prob.get_val(f'{pt}.balance.FAR_core')),
-        'FAR_ab':    float(prob.get_val(f'{pt}.balance.FAR_ab')),
+        'FAR_ab':    float(prob.get_val(f'{pt}.balance.FAR_ab')) if afterburn else 0.0,
         'OPR':       float(prob[f'{pt}.fan.PR'] * prob[f'{pt}.hpc.PR']),
         'fan_PR':    float(prob[f'{pt}.fan.PR']),
         'hpc_PR':    float(prob[f'{pt}.hpc.PR']),
@@ -139,20 +142,36 @@ class SweepRunner:
         Name of the OD point in the model (default 'OD').
     mach : float
         Mach number to use for all sweep points.
+    afterburn : bool
+        True = wet mode: 'power' in sweep points is T7 (degR); Tt4 is fixed at mil_Tt4.
+        False = dry mode: 'power' in sweep points is Tt4 (degR); afterburner is off.
+    mil_Tt4 : float
+        Core burner exit temp (degR) held fixed during a wet sweep (mil power).
+        Ignored in dry mode.
     """
 
-    def __init__(self, prob, od_pt='OD', mach=0.01):
+    def __init__(self, prob, od_pt='OD', mach=0.01, afterburn=True, mil_Tt4=3100.):
         self.prob = prob
         self.od_pt = od_pt
         self.mach = mach
+        self.afterburn = afterburn
+        self.mil_Tt4 = mil_Tt4
 
     def _set_od_conditions(self, alt, dTs, power):
-        """Set flight conditions and power level on the OD point."""
+        """Set flight conditions and power level on the OD point.
+
+        In dry mode, 'power' is the Tt4 target (degR).
+        In wet mode, 'power' is the T7 (Tt7) target (degR); Tt4 is fixed at mil_Tt4.
+        """
         pt = self.od_pt
         self.prob.set_val(f'{pt}.fc.alt', alt, units='ft')
         self.prob.set_val(f'{pt}.fc.dTs', dTs, units='degR')
         self.prob.set_val(f'{pt}.fc.MN', self.mach)
-        self.prob.set_val(f'{pt}.balance.rhs:FAR_core', power, units='degR')
+        if self.afterburn:
+            self.prob.set_val(f'{pt}.balance.rhs:FAR_core', self.mil_Tt4, units='degR')
+            self.prob.set_val(f'{pt}.balance.rhs:FAR_ab', power, units='degR')
+        else:
+            self.prob.set_val(f'{pt}.balance.rhs:FAR_core', power, units='degR')
 
     def _run_point(self):
         """Run the model and return True if converged."""
@@ -209,7 +228,7 @@ class SweepRunner:
             converged = self._run_point()
 
             if converged:
-                row = extract_od_results(self.prob, self.od_pt)
+                row = extract_od_results(self.prob, self.od_pt, afterburn=self.afterburn)
                 results.append(row)
             else:
                 log.warning("Point did not converge: alt=%.0f dTs=%.1f power=%.0f",

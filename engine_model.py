@@ -7,8 +7,15 @@ import pycycle.api as pyc
 
 class MixedFlowTurbofan(pyc.Cycle):
 
+    def initialize(self):
+        self.options.declare('afterburn', default=True, types=bool,
+                             desc='True = FAR_ab balance active (wet/AB mode). '
+                                  'False = afterburner FAR fixed at 0 (dry mode).')
+        super().initialize()
+
     def setup(self):
         design = self.options['design']
+        afterburn = self.options['afterburn']
 
         USE_TABULAR = True
 
@@ -123,7 +130,7 @@ class MixedFlowTurbofan(pyc.Cycle):
             # self.add_subsystem('wDV',IndepVarComp('wDes',100,units='lbm/s'))
             # self.connect('wDV.wDes','fc.W')
 
-            balance.add_balance('BPR', eq_units=None, lower=0.3, upper=0.35, val=0.34) #OG val=5.0
+            balance.add_balance('BPR', eq_units=None, lower=0.25, upper=0.55, val=0.34)
             self.connect('balance.BPR', 'splitter.BPR')
             self.connect('mixer.ER', 'balance.lhs:BPR')
 
@@ -131,16 +138,17 @@ class MixedFlowTurbofan(pyc.Cycle):
             self.connect('balance.FAR_core', 'burner.Fl_I:FAR')
             self.connect('burner.Fl_O:tot:T', 'balance.lhs:FAR_core')
 
-            balance.add_balance('FAR_ab', eq_units='degR', lower=1e-4, val=.017)
-            self.connect('balance.FAR_ab', 'afterburner.Fl_I:FAR')
-            self.connect('afterburner.Fl_O:tot:T', 'balance.lhs:FAR_ab')
+            if afterburn:
+                balance.add_balance('FAR_ab', eq_units='degR', lower=1e-4, val=.017)
+                self.connect('balance.FAR_ab', 'afterburner.Fl_I:FAR')
+                self.connect('afterburner.Fl_O:tot:T', 'balance.lhs:FAR_ab')
 
             balance.add_balance('hpt_PR', val=2.0, lower=1.001, upper=3.0, eq_units='hp', use_mult=True, mult_val=-1)
             self.connect('balance.hpt_PR', 'hpt.PR')
             self.connect('hp_shaft.pwr_in', 'balance.lhs:hpt_PR')
             self.connect('hp_shaft.pwr_out', 'balance.rhs:hpt_PR')
 
-            balance.add_balance('lpt_PR', val=3.0, lower=1.001, upper=3.5, eq_units='hp', use_mult=True, mult_val=-1)
+            balance.add_balance('lpt_PR', val=2.5, lower=1.001, upper=3.5, eq_units='hp', use_mult=True, mult_val=-1)
             self.connect('balance.lpt_PR', 'lpt.PR')
             self.connect('lp_shaft.pwr_in', 'balance.lhs:lpt_PR')
             self.connect('lp_shaft.pwr_out', 'balance.rhs:lpt_PR')
@@ -151,7 +159,7 @@ class MixedFlowTurbofan(pyc.Cycle):
             self.connect('balance.W', 'fc.W')
             self.connect('mixed_nozz.Throat:stat:area', 'balance.lhs:W')
 
-            balance.add_balance('BPR', lower=0.3, upper=0.35, val=0.34, eq_units='psi') #OG upper=5.0
+            balance.add_balance('BPR', lower=0.1, upper=1.0, val=0.34, eq_units='psi')
             self.connect('balance.BPR', 'splitter.BPR')
             self.connect('mixer.Fl_I1_calc:stat:P', 'balance.lhs:BPR')
             self.connect('bypass_duct.Fl_O:stat:P', 'balance.rhs:BPR')
@@ -160,9 +168,10 @@ class MixedFlowTurbofan(pyc.Cycle):
             self.connect('balance.FAR_core', 'burner.Fl_I:FAR')
             self.connect('burner.Fl_O:tot:T', 'balance.lhs:FAR_core')
 
-            balance.add_balance('FAR_ab', eq_units='degR', lower=1e-4, upper=.06, val=.017)
-            self.connect('balance.FAR_ab', 'afterburner.Fl_I:FAR')
-            self.connect('afterburner.Fl_O:tot:T', 'balance.lhs:FAR_ab')
+            if afterburn:
+                balance.add_balance('FAR_ab', eq_units='degR', lower=1e-4, upper=.06, val=.017)
+                self.connect('balance.FAR_ab', 'afterburner.Fl_I:FAR')
+                self.connect('afterburner.Fl_O:tot:T', 'balance.lhs:FAR_ab')
 
             balance.add_balance('LP_Nmech', val=1., units='rpm', lower=500., eq_units='hp', use_mult=True, mult_val=-1)
             self.connect('balance.LP_Nmech', 'LP_Nmech')
@@ -179,7 +188,7 @@ class MixedFlowTurbofan(pyc.Cycle):
         newton.options['atol'] = 1e-5 #1e-6
         newton.options['rtol'] = 1e-9 #1e-10
         newton.options['iprint'] = 1 #2
-        newton.options['maxiter'] = 10 #10
+        newton.options['maxiter'] = 50
         newton.options['solve_subsystems'] = True
         newton.options['max_sub_solves'] = 100 #100
         newton.options['reraise_child_analysiserror'] = False
