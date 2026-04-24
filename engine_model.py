@@ -130,7 +130,7 @@ class MixedFlowTurbofan(pyc.Cycle):
             # self.add_subsystem('wDV',IndepVarComp('wDes',100,units='lbm/s'))
             # self.connect('wDV.wDes','fc.W')
 
-            balance.add_balance('BPR', eq_units=None, lower=0.25, upper=0.55, val=0.34)
+            balance.add_balance('BPR', eq_units=None, lower=0.25, upper=0.80, val=0.65)
             self.connect('balance.BPR', 'splitter.BPR')
             self.connect('mixer.ER', 'balance.lhs:BPR')
 

@@ -65,7 +65,7 @@ def _set_design_inputs(prob, Fn_target):
     prob['DESIGN.fc.balance.Pt']       = 5.3
     prob['DESIGN.fc.balance.Tt']       = 450.
     prob['DESIGN.balance.W']           = 120.0
-    prob['DESIGN.balance.BPR']         = 0.34
+    prob['DESIGN.balance.BPR']         = 0.65
     prob['DESIGN.balance.FAR_core']    = 0.025
     prob['DESIGN.balance.hpt_PR']      = 2.5506
     prob['DESIGN.balance.lpt_PR']      = 2.5  # chosen so core exit P ≈ bypass exit P (ER≈1)
