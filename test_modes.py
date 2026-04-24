@@ -4,13 +4,14 @@ Smoke test for dry and wet afterburner modes.
 Runs four points in sequence:
   1. DESIGN (dry)  — SLS, mil Tt4, afterburner off
   2. OD     (dry)  — same alt/MN as design, same Tt4 — should reproduce design thrust
-  3. DESIGN (wet)  — SLS, mil Tt4, Tt7 = 3400 degR
-  4. OD     (wet)  — same alt/MN/Tt4 as wet design; Tt7 raised to test AB throttle
+  3. DESIGN (wet)  — SLS, mil Tt4, Tt7 = 3800 degR (max AB; anchors engine sizing)
+  4. OD     (wet)  — same alt/MN/Tt4 as wet design; Tt7 reduced to 3600 degR (partial AB)
 
 NOTE — design point thrust targets:
   DRY_DSN_FN: F404 produces ~17,700 lbf ONLY with max afterburner.
               Dry mil thrust is lower — fill in DRY_DSN_FN below with your value.
-  WET_DSN_FN: 17,700 lbf is the correct target for the max-AB design point.
+  WET_DSN_FN: 17,700 lbf at Tt7=3800 degR is the correct max-AB design anchor.
+              OD points at lower T7 (partial AB) will produce less thrust.
 
 NOTE — two separate om.Problem instances are required because the FAR_ab
 balance is structural and cannot be toggled at runtime.
@@ -36,7 +37,7 @@ except ImportError:
 
 # ── Performance targets ───────────────────────────────────────────────────────
 # TODO: replace DRY_DSN_FN with the F404's actual SLS mil (dry) thrust in lbf.
-# The -402 variant is nominally ~11,000 lbf dry; confirm against your data.
+# The -402 variant is nominally ~11,000 lbf dry; confirm against test data.
 DRY_DSN_FN = 11_000.  # lbf — SLS mil power (no afterburner)
 WET_DSN_FN = 17_700.  # lbf — SLS max afterburner
 
@@ -46,8 +47,8 @@ MN     = 0.01   # Mach — SLS (static-ish)
 Tt4    = 3100.  # degR — core burner exit, mil power (both modes)
 
 # Wet mode T7 targets
-WET_DSN_Tt7 = 3400.  # degR — design-point afterburner exit
-WET_OD_Tt7  = 3600.  # degR — OD afterburner exit (stepped up to exercise AB)
+WET_DSN_Tt7 = 3800.  # degR — design-point afterburner exit (max AB; matches WET_DSN_FN)
+WET_OD_Tt7  = 3600.  # degR — OD afterburner exit (stepped down from design)
 
 
 def _set_design_inputs(prob, Fn_target):
@@ -168,8 +169,8 @@ prob_wet.run_model()
 print(f"  elapsed: {time.time()-t0:.1f}s")
 page_viewer(prob_wet, 'DESIGN')
 
-# Point 4 — Wet OD: same alt/MN/Tt4 as design, Tt7 stepped up to exercise AB
-header(f"Point 4 / 4 — WET OD      (alt={ALT:.0f} ft, MN={MN}, Tt4={Tt4:.0f} R, Tt7={WET_OD_Tt7:.0f} R — AB throttled up)")
+# Point 4 — Wet OD: same alt/MN/Tt4 as design, Tt7 reduced to exercise partial AB
+header(f"Point 4 / 4 — WET OD      (alt={ALT:.0f} ft, MN={MN}, Tt4={Tt4:.0f} R, Tt7={WET_OD_Tt7:.0f} R — AB throttled back)")
 prob_wet.set_val(pt_wet + '.fc.alt', ALT, units='ft')
 prob_wet.set_val(pt_wet + '.fc.MN', MN)
 prob_wet.set_val(pt_wet + '.fc.dTs', 0.0, units='degR')

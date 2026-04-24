@@ -14,6 +14,8 @@ Wet sweep
   - afterburn=True: FAR_ab balance drives T7 to target
   - 'power' in sweep points = T7 (Tt7) target (degR)
   - Tt4 is fixed at mil power (mil_Tt4) for the entire wet sweep
+  - DESIGN anchor: Tt7=3800 degR (max AB), Fn=17,700 lbf — correct sizing point
+  - Sweep covers partial-AB range (3200–3800 degR); thrust is an output, not a target
 
 Usage:
     python sweep_full_envelope.py
@@ -41,7 +43,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # ── Shared design geometry ────────────────────────────────────────────────────
 MIL_Tt4  = 3100.   # degR — core burner exit at mil power (throttle wall)
-DSN_Tt7  = 3400.   # degR — afterburner exit at DESIGN point (wet only)
+DSN_Tt7  = 3800.   # degR — afterburner exit at DESIGN point (wet only; max AB)
 DSN_Fn   = 17700.  # lbf  — SLS design thrust target
 
 
@@ -181,9 +183,10 @@ def setup_wet_problem():
 if __name__ == "__main__":
 
     # ── Sweep grid (shared by both modes) ────────────────────────────────────
-    alts      = np.arange(0, 45001, 5000)      # 0–45k ft, 5k steps
-    dTs_vals  = np.arange(-50, 51, 10)          # ±50 degR delta-ISA
-    MACH      = 0.85                            # fixed Mach for this deck
+    # Crawl-walk-run scope: low altitudes, static conditions on the runway.
+    alts      = np.arange(0, 5001, 2500)       # [0, 2500, 5000] ft — 3 pts
+    dTs_vals  = np.arange(-50, 51, 10)          # ±50 degR delta-ISA — 11 pts
+    MACH      = 0.001                           # static (runway) conditions
 
     # Dry: sweep Tt4 from mil (3100) down to part-power (2500)
     dry_powers = [3100., 2900., 2700., 2500.]   # Tt4, degR
@@ -206,7 +209,7 @@ if __name__ == "__main__":
     )
     df_dry = runner_dry.run_sweep(
         dry_sweep_pts,
-        bridge_threshold={'alt': 5000, 'dTs': 30},
+        bridge_threshold={'alt': 2000, 'dTs': 30, 'power': 100},
         max_bridge_steps=5,
     )
     df_dry['mode'] = 'dry'
@@ -224,7 +227,7 @@ if __name__ == "__main__":
     )
     df_wet = runner_wet.run_sweep(
         wet_sweep_pts,
-        bridge_threshold={'alt': 5000, 'dTs': 30},
+        bridge_threshold={'alt': 2000, 'dTs': 30, 'power': 100},
         max_bridge_steps=5,
     )
     df_wet['mode'] = 'wet'
