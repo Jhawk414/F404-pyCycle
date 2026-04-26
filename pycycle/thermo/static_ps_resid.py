@@ -110,7 +110,11 @@ class PsResid(om.ImplicitComponent):
         try:
             Vsonic = (i['gamma']*i['R']*i['Ts'])**0.5
         except:
-            print(self.pathname, i['gamma'], i['R'], i['Ts'])
+            # Silenced: this debug print fires on every Newton iteration that
+            # explores non-physical thermo state (gamma*R*Ts < 0). SweepRunner
+            # detects the bad state via its own checks; the print is just spam.
+            # print(self.pathname, i['gamma'], i['R'], i['Ts'])
+            pass
         finally:
             np.seterr(**old)
 

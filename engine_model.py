@@ -58,8 +58,14 @@ class MixedFlowTurbofan(pyc.Cycle):
         # Mixer component
         self.add_subsystem('mixer', pyc.Mixer(designed_stream=1))
         self.add_subsystem('mixer_duct', pyc.Duct())
-        # Afterburner Components
-        self.add_subsystem('afterburner', pyc.Combustor(fuel_type=FUEL_TYPE))
+        # Afterburner Components — in dry mode it's just a pipe (Duct), not a
+        # Combustor. A Combustor with no fuel addition produces a rank-deficient
+        # Jacobian (every output equation collapses to a copy of the input),
+        # which crashes the OD linear solve at part-power dry conditions.
+        if afterburn:
+            self.add_subsystem('afterburner', pyc.Combustor(fuel_type=FUEL_TYPE))
+        else:
+            self.add_subsystem('afterburner', pyc.Duct())
 
         # Nozzle
         self.add_subsystem('mixed_nozz', pyc.Nozzle(nozzType='CD', lossCoef='Cfg'))
@@ -68,8 +74,9 @@ class MixedFlowTurbofan(pyc.Cycle):
         self.add_subsystem('lp_shaft', pyc.Shaft(num_ports=2),promotes_inputs=[('Nmech','LP_Nmech')]) #OG: 3
         self.add_subsystem('hp_shaft', pyc.Shaft(num_ports=2),promotes_inputs=[('Nmech','HP_Nmech')])
 
-        # Aggregating component
-        self.add_subsystem('perf', pyc.Performance(num_nozzles=1, num_burners=2))
+        # Aggregating component — only one burner in dry mode (no afterburner fuel)
+        n_burners = 2 if afterburn else 1
+        self.add_subsystem('perf', pyc.Performance(num_nozzles=1, num_burners=n_burners))
 
         # Connect flow paths
         self.pyc_connect_flow('fc.Fl_O', 'inlet.Fl_I')
@@ -109,7 +116,8 @@ class MixedFlowTurbofan(pyc.Cycle):
         self.connect('inlet.Fl_O:tot:P', 'perf.Pt2')
         self.connect('hpc.Fl_O:tot:P', 'perf.Pt3')
         self.connect('burner.Wfuel', 'perf.Wfuel_0')
-        self.connect('afterburner.Wfuel', 'perf.Wfuel_1')
+        if afterburn:
+            self.connect('afterburner.Wfuel', 'perf.Wfuel_1')
         self.connect('inlet.F_ram', 'perf.ram_drag')
         self.connect('mixed_nozz.Fg', 'perf.Fg_0')
 
@@ -192,9 +200,21 @@ class MixedFlowTurbofan(pyc.Cycle):
         newton.options['solve_subsystems'] = True
         newton.options['max_sub_solves'] = 100 #100
         newton.options['reraise_child_analysiserror'] = False
-        newton.linesearch = om.BoundsEnforceLS()
-        newton.linesearch.options['bound_enforcement'] = 'scalar'
-        newton.linesearch.options['iprint'] = -1
+        # Raise AnalysisError when Newton fails to drive residual below atol/rtol
+        # within maxiter. Without this, the solver silently returns whatever
+        # bound-clipped or stalled state it landed in — and SweepRunner would
+        # report it as "converged", producing garbage rows in the cycle deck.
+        newton.options['err_on_non_converge'] = True
+        # ArmijoGoldsteinLS with maxiter=0 by default — skips the Armijo
+        # backtracking loop entirely and behaves like BoundsEnforceLS (fast).
+        # SweepRunner toggles maxiter to 3 on per-point failure to enable
+        # backtracking as a fallback strategy. This avoids paying Armijo's
+        # overhead on the ~95% of points that converge cleanly without it.
+        newton.linesearch = om.ArmijoGoldsteinLS(bound_enforcement='scalar')
+        newton.linesearch.options['maxiter'] = 0  # SweepRunner bumps to 3 on retry
+        newton.linesearch.options['rho'] = 0.5    # halve step on rejection
+        newton.linesearch.options['c'] = 0.1      # Armijo sufficient-decrease constant
+        newton.linesearch.options['iprint'] = -1  # suppress per-backtrack residual lines
 
 
         self.linear_solver = om.DirectSolver(assemble_jac=True)

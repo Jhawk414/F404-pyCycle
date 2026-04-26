@@ -101,11 +101,10 @@ prob_dry.model = mp_dry = MPMixedFlowTurbofan(afterburn=False)
 prob_dry.setup()
 
 _set_design_inputs(prob_dry, DRY_DSN_FN)
-prob_dry['DESIGN.afterburner.Fl_I:FAR'] = 0.0  # afterburner off at design
+# Dry mode: afterburner is a pyc.Duct, not a Combustor — no Fl_I:FAR to override.
 
 pt_dry = mp_dry.od_pt  # 'OD'
 _set_od_guesses(prob_dry, pt_dry)
-prob_dry[pt_dry + '.afterburner.Fl_I:FAR'] = 0.0
 
 # Pre-set OD flight conditions so the OD solver has a sane starting point
 # when prob.run_model() fires the first time (runs DESIGN and OD together).

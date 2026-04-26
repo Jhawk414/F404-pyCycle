@@ -18,8 +18,11 @@ Wet sweep
   - Sweep covers partial-AB range (3200–3800 degR); thrust is an output, not a target
 
 Usage:
-    python sweep_full_envelope.py
+    python sweep_full_envelope.py                   # both dry and wet (default)
+    python sweep_full_envelope.py --mode dry        # dry sweep only
+    python sweep_full_envelope.py --mode wet        # wet sweep only
 """
+import argparse
 import logging
 import time
 import warnings
@@ -42,16 +45,30 @@ except ImportError:
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # ── Shared design geometry ────────────────────────────────────────────────────
-MIL_Tt4  = 3100.   # degR — core burner exit at mil power (throttle wall)
-DSN_Tt7  = 3800.   # degR — afterburner exit at DESIGN point (wet only; max AB)
-DSN_Fn   = 17700.  # lbf  — SLS design thrust target
+# TODO: Unify dry and wet under a single sized engine.
+# Currently setup_dry_problem() and setup_wet_problem() each create their own
+# om.Problem with an independent DESIGN solve — sizing two different engines
+# (~1–2% different W, BPR, map scalars, station areas) rather than one F404.
+# Path forward: anchor sizing at wet max-AB conditions and reuse those scalars
+# for dry OD. See docs/single_engine_mode.md for design options and tradeoffs.
+MIL_Tt4    = 3100.   # degR — core burner exit at mil power (throttle wall)
+DSN_Tt7    = 3800.   # degR — afterburner exit at DESIGN point (wet only; max AB)
+DRY_DSN_FN = 11000.  # lbf  — SLS mil power (no afterburner)
+WET_DSN_FN = 17700.  # lbf  — SLS max afterburner
 
 
-def _apply_design_inputs(prob):
-    """Set design-point values and initial guesses (shared by both modes)."""
+def _apply_design_inputs(prob, fn_target):
+    """Set design-point values and initial guesses (shared by both modes).
+
+    fn_target : float
+        SLS thrust target in lbf. Use DRY_DSN_FN (11,000) for dry mode and
+        WET_DSN_FN (17,700) for wet (max-AB) mode — sizing the engine for
+        the wrong thrust pins the W balance at its upper bound and corrupts
+        all subsequent OD points.
+    """
     prob.set_val('DESIGN.fc.alt', 0.0, units='ft')
     prob.set_val('DESIGN.fc.MN', 0.01)
-    prob.set_val('DESIGN.balance.rhs:W', DSN_Fn, units='lbf')
+    prob.set_val('DESIGN.balance.rhs:W', fn_target, units='lbf')
     prob.set_val('DESIGN.balance.rhs:FAR_core', MIL_Tt4, units='degR')
 
     prob.set_val('DESIGN.fan.PR', 4.1)
@@ -94,14 +111,14 @@ def setup_dry_problem():
     prob.model = mp = MPMixedFlowTurbofan(afterburn=False)
     prob.setup()
 
-    _apply_design_inputs(prob)
+    _apply_design_inputs(prob, DRY_DSN_FN)
 
-    # Dry mode: afterburner FAR must stay at 0 — enforce initial condition
-    prob['DESIGN.afterburner.Fl_I:FAR'] = 0.0
+    # Dry mode: afterburner is a pyc.Duct (no fuel addition), so there is
+    # no Fl_I:FAR balance/input to override here. FAR propagates through
+    # from the upstream mixer_duct flow as-is.
 
     pt = mp.od_pt
     _apply_od_guesses(prob, pt)
-    prob[pt + '.afterburner.Fl_I:FAR'] = 0.0
 
     # Pre-set OD flight conditions before first run_model() (runs DESIGN + OD together)
     prob.set_val(pt + '.fc.alt', 0.0, units='ft')
@@ -138,7 +155,7 @@ def setup_wet_problem():
     prob.model = mp = MPMixedFlowTurbofan(afterburn=True)
     prob.setup()
 
-    _apply_design_inputs(prob)
+    _apply_design_inputs(prob, WET_DSN_FN)
 
     # Wet DESIGN: set T7 target and FAR_ab initial guess
     prob.set_val('DESIGN.balance.rhs:FAR_ab', DSN_Tt7, units='degR')
@@ -182,10 +199,20 @@ def setup_wet_problem():
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
+    parser.add_argument('--mode', choices=['dry', 'wet', 'both'], default='both',
+                        help="Sweep mode (default: both). Use 'dry' or 'wet' "
+                             "to run only one mode without re-running the other.")
+    args = parser.parse_args()
+
     # ── Sweep grid (shared by both modes) ────────────────────────────────────
     # Crawl-walk-run scope: low altitudes, static conditions on the runway.
     alts      = np.arange(0, 5001, 2500)       # [0, 2500, 5000] ft — 3 pts
-    dTs_vals  = np.arange(-50, 51, 10)          # ±50 degR delta-ISA — 11 pts
+    # dTs ordering: anchor at 0 (matches OD verification), walk hot first
+    # (+10..+50), then jump to cold side (-10..-50). Bridge logic handles
+    # the +50 → -10 jump within each alt level.
+    dTs_vals  = [0., 10., 20., 30., 40., 50.,
+                 -10., -20., -30., -40., -50.]   # 11 pts, hot-first
     MACH      = 0.001                           # static (runway) conditions
 
     # Dry: sweep Tt4 from mil (3100) down to part-power (2500)
@@ -195,53 +222,61 @@ if __name__ == "__main__":
     wet_powers = [3800., 3600., 3400., 3200.]   # Tt7, degR
 
     st_total = time.time()
+    df_dry = df_wet = None
+    n_dry = n_wet = 0
 
     # ── DRY SWEEP ────────────────────────────────────────────────────────────
-    prob_dry, mp_dry = setup_dry_problem()
-    prob_dry.set_solver_print(level=-1)
+    if args.mode in ('dry', 'both'):
+        prob_dry, mp_dry = setup_dry_problem()
+        prob_dry.set_solver_print(level=-1)
 
-    dry_sweep_pts = build_snake_sweep(alts, dTs_vals, dry_powers)
-    print(f"\nDry sweep matrix: {len(dry_sweep_pts)} points")
+        dry_sweep_pts = build_snake_sweep(alts, dTs_vals, dry_powers)
+        n_dry = len(dry_sweep_pts)
+        print(f"\nDry sweep matrix: {n_dry} points")
 
-    runner_dry = SweepRunner(
-        prob_dry, od_pt=mp_dry.od_pt, mach=MACH,
-        afterburn=False,
-    )
-    df_dry = runner_dry.run_sweep(
-        dry_sweep_pts,
-        bridge_threshold={'alt': 2000, 'dTs': 30, 'power': 100},
-        max_bridge_steps=5,
-    )
-    df_dry['mode'] = 'dry'
+        runner_dry = SweepRunner(
+            prob_dry, od_pt=mp_dry.od_pt, mach=MACH,
+            afterburn=False,
+        )
+        df_dry = runner_dry.run_sweep(
+            dry_sweep_pts,
+            bridge_threshold={'alt': 2000, 'dTs': 30, 'power': 100},
+            max_bridge_steps=5,
+        )
+        df_dry['mode'] = 'dry'
+        df_dry.to_csv('cycle_deck_dry.csv', index=False)
 
     # ── WET SWEEP ────────────────────────────────────────────────────────────
-    prob_wet, mp_wet = setup_wet_problem()
-    prob_wet.set_solver_print(level=-1)
+    if args.mode in ('wet', 'both'):
+        prob_wet, mp_wet = setup_wet_problem()
+        prob_wet.set_solver_print(level=-1)
 
-    wet_sweep_pts = build_snake_sweep(alts, dTs_vals, wet_powers)
-    print(f"\nWet sweep matrix: {len(wet_sweep_pts)} points")
+        wet_sweep_pts = build_snake_sweep(alts, dTs_vals, wet_powers)
+        n_wet = len(wet_sweep_pts)
+        print(f"\nWet sweep matrix: {n_wet} points")
 
-    runner_wet = SweepRunner(
-        prob_wet, od_pt=mp_wet.od_pt, mach=MACH,
-        afterburn=True, mil_Tt4=MIL_Tt4,
-    )
-    df_wet = runner_wet.run_sweep(
-        wet_sweep_pts,
-        bridge_threshold={'alt': 2000, 'dTs': 30, 'power': 100},
-        max_bridge_steps=5,
-    )
-    df_wet['mode'] = 'wet'
+        runner_wet = SweepRunner(
+            prob_wet, od_pt=mp_wet.od_pt, mach=MACH,
+            afterburn=True, mil_Tt4=MIL_Tt4,
+        )
+        df_wet = runner_wet.run_sweep(
+            wet_sweep_pts,
+            bridge_threshold={'alt': 2000, 'dTs': 30, 'power': 100},
+            max_bridge_steps=5,
+        )
+        df_wet['mode'] = 'wet'
+        df_wet.to_csv('cycle_deck_wet.csv', index=False)
 
-    # ── Combine and save ─────────────────────────────────────────────────────
-    df_all = pd.concat([df_dry, df_wet], ignore_index=True)
-    outfile = 'cycle_deck_full_envelope.csv'
-    df_all.to_csv(outfile, index=False)
+    # ── Combined CSV (only when both modes ran) ──────────────────────────────
+    if df_dry is not None and df_wet is not None:
+        df_all = pd.concat([df_dry, df_wet], ignore_index=True)
+        df_all.to_csv('cycle_deck_full_envelope.csv', index=False)
 
     elapsed = time.time() - st_total
-    dry_conv  = len(df_dry)
-    wet_conv  = len(df_wet)
     print(f"\nSweep complete in {elapsed:.1f}s")
-    print(f"  Dry: {dry_conv} / {len(dry_sweep_pts)} converged")
-    print(f"  Wet: {wet_conv} / {len(wet_sweep_pts)} converged")
-    print(f"  Total rows: {len(df_all)}")
-    print(f"Results saved to {outfile}")
+    if df_dry is not None:
+        print(f"  Dry: {len(df_dry)} / {n_dry} converged → cycle_deck_dry.csv")
+    if df_wet is not None:
+        print(f"  Wet: {len(df_wet)} / {n_wet} converged → cycle_deck_wet.csv")
+    if df_dry is not None and df_wet is not None:
+        print(f"  Combined: {len(df_dry) + len(df_wet)} rows → cycle_deck_full_envelope.csv")
