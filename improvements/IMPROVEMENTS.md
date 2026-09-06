@@ -196,6 +196,31 @@ full rewrite covering:
 Best sequenced after item 1 (`src/` restructure) so the architecture
 diagram and usage commands don't need a rewrite the moment paths move.
 
+### Sweep envelope coverage plot
+
+Add an auto-generated SVG/plot to the README (and/or `deck/steady-state/`)
+showing the breadth of the largest cycle sweep run to date, as a quick
+visual answer to "what part of the flight envelope has actually been
+validated":
+
+- **X-axis:** ambient temperature (`dTs` off standard-day, or absolute
+  `Ts`).
+- **Y-axis:** altitude (ft).
+- **Point color:** throttle setting — `Tt4` for dry-mode points, `Tt7` for
+  wet-mode points — using the default matplotlib/MATLAB "jet"-style
+  colormap (`viridis` is the modern matplotlib default and is more
+  perceptually uniform if we want to deviate from the classic look).
+- **Non-converged points:** don't silently drop them — a coverage map that
+  hides failures overstates validated envelope. Mark them distinctly
+  (open/hollow marker, or a red "X" overlay) rather than omitting them
+  outright; exact styling is a small `matplotlib` decision to make at
+  implementation time, not a design blocker.
+
+Generate this from the `deck/` CSVs (or the sweep's solver log, once item
+5's logging lands) via a small script — e.g. `scripts/plot_envelope.py` —
+rather than hand-drawing it, so the diagram can be regenerated whenever a
+larger sweep is run instead of silently going stale in the README.
+
 ## 7. YAML-driven run configuration
 
 Today, running this repo means editing Python: constants baked into
