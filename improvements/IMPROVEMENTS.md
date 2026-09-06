@@ -233,3 +233,32 @@ load(...))`), so a typo or out-of-range value fails fast at load time with
 a clear message instead of surfacing as a Newton convergence failure deep
 in a sweep. Sequence this alongside/after item 3 and after item 1's `src/`
 layout exists.
+
+## 8. CLI entry point + service layer
+
+There is currently no CLI. `sweep_full_envelope.py`, `run_design_od.py`,
+and `test_modes.py` are standalone scripts meant to be run directly — none
+of them expose a stable, documented function signature for another piece
+of code (a notebook, a future web API, a test suite) to call into. Two
+related gaps to close, roughly in this order:
+
+1. **Service layer** — extract the logic currently buried in each script's
+   `if __name__ == '__main__':` block into real functions with typed
+   signatures and return values, e.g. `run_design_point(mode, fn_target,
+   ...) -> DesignResult` and `run_sweep(config: RunConfig) -> pd.DataFrame`
+   (consuming item 7's `RunConfig`). Scripts become thin callers of these
+   functions instead of owning the logic themselves.
+2. **CLI** — a `cli.py` (`src/F404_pycycle/cli.py` once item 1 lands)
+   wrapping the service layer with subcommands:
+   - `design` — run a single DESIGN point
+   - `sweep` — run a full/partial envelope sweep
+   - `init-config` — emit a template `run.yml` (item 7)
+   - `run --config run.yml` — execute whatever `run.yml` describes
+   Plus a sibling `cli_test.py` with smoke tests per subcommand (e.g.
+   `design` reproduces a known Fn within tolerance; `init-config`'s output
+   round-trips through the `RunConfig` pydantic model without error).
+
+Sequence after item 1 (so the CLI and service layer live in `src/
+F404_pycycle/` from the start, not at the root needing another move) and
+after/alongside item 7 (so `run`/`init-config` have a config schema to
+target).
