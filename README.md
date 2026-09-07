@@ -31,3 +31,71 @@ validated against public F404 performance data.
 - [Roadmap](#roadmap)
 - [Acknowledgments](#acknowledgments)
 - [License](#license)
+
+## Repo layout
+
+F404-specific application code currently lives loose at the repo root,
+alongside the vendored upstream `pycycle` library it's built on. An open
+issue ([#4](https://github.com/Jhawk414/F404-pyCycle/issues/4)) tracks
+moving the F404 files below into `src/F404_pycycle/` to separate the two;
+paths here reflect the current (pre-restructure) state.
+
+| Path | Role |
+|---|---|
+| `engine_model.py` | `MixedFlowTurbofan(pyc.Cycle)` — single-point thermodynamic cycle (fan, HPC, burner, HPT/LPT, mixer, afterburner, nozzle) |
+| `mp_cycle.py` | `MPMixedFlowTurbofan(pyc.MPCycle)` — wires a DESIGN point and an off-design (OD) point, transferring map scalars and station areas between them |
+| `sweep_utils.py` | Sweep infrastructure: snake-pattern sweep grid, bridge-point warm-starting, `SweepRunner`, result extraction |
+| `sweep_full_envelope.py` | CLI driver — runs the full alt/dTs/throttle sweep for dry, wet, or both modes |
+| `run_design_od.py` | Minimal single DESIGN + one OD point runner, kept as a fast regression check against the pre-refactor model |
+| `printer.py` | Console table formatter for DESIGN/OD results |
+| `deck/` | Cycle-deck output CSVs |
+| `improvements/` | Roadmap notes and planning docs |
+| `AGENTS/` | Handoff notes between work sessions |
+| `meta/` | Vendored-library provenance (`LICENSE.txt`, upstream `release_notes.md`) |
+| `pycycle/`, `setup.py`, `pyproject.toml`, `example_cycles/` | Vendored upstream `pyCycle` library — not F404-specific |
+
+## Architecture and data flow
+
+Current (pre-`src/`-restructure) data flow, from CLI invocation to cycle-deck
+CSV. This diagram covers today's module boundaries — expect it to change
+once issue #4's restructure lands.
+
+```mermaid
+flowchart TD
+    subgraph Drivers["Entry-point scripts (repo root)"]
+        A["sweep_full_envelope.py<br/>--mode dry|wet|both"]
+        B["run_design_od.py<br/>single DESIGN + OD point"]
+    end
+
+    subgraph Model["Cycle model"]
+        C["mp_cycle.py<br/>MPMixedFlowTurbofan(pyc.MPCycle)<br/>wires DESIGN + OD points"]
+        D["engine_model.py<br/>MixedFlowTurbofan(pyc.Cycle)<br/>single-point thermodynamic cycle"]
+    end
+
+    subgraph Sweep["Sweep infrastructure"]
+        E["sweep_utils.py<br/>build_snake_sweep · generate_bridge_points<br/>SweepRunner · extract_od_results"]
+    end
+
+    subgraph Output["Output"]
+        F["printer.py<br/>page_viewer() console tables"]
+        G["deck/*.csv<br/>cycle_deck_dry / _wet / _full_envelope"]
+    end
+
+    H["pycycle/<br/>vendored OpenMDAO pyCycle elements, maps, thermo"]
+
+    A --> C
+    B --> C
+    C --> D
+    D -.built on.-> H
+    A --> E
+    E --> C
+    E --> G
+    A --> F
+    B --> F
+```
+
+`mp_cycle.py` builds two instances of the same `MixedFlowTurbofan` model —
+one with `design=True` (DESIGN point, solved once to size the engine) and
+one with `design=False` (the OD point, re-solved at each sweep condition)
+— and connects the DESIGN instance's converged map scalars and station
+areas into the OD instance so off-design results reflect the sized engine.
