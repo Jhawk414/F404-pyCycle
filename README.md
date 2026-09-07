@@ -147,3 +147,51 @@ alt ∈ {0, 2500, 5000} ft, dTs ∈ {0, ±10, ±20, ±30, ±40, ±50} R, static
 Every point with dTs ≥ 0 R converges. Failures concentrate at cold
 (dTs < 0 R) + high-altitude + max-AB corners — tracked in
 [issue #3](https://github.com/Jhawk414/F404-pyCycle/issues/3).
+
+## Roadmap
+
+Done:
+
+- [x] Modular cycle model (`engine_model.py` / `mp_cycle.py`), refactored off
+      the original monolithic `MFTF_od_CRZ.py`
+- [x] Full alt/dTs/throttle sweep infrastructure with bridge-point
+      warm-starting (`sweep_utils.py`)
+- [x] Dry (mil) / wet (max-AB) mode split, with convergence-detection bugs
+      fixed (bound-saturated states no longer reported as converged)
+
+Planned (see `improvements/IMPROVEMENTS.md` for full detail):
+
+- [ ] `src/` restructure — separate F404 app code from vendored pyCycle
+      library ([#4](https://github.com/Jhawk414/F404-pyCycle/issues/4))
+- [ ] Single-engine sizing — unify the dry/wet DESIGN points, which
+      currently size two ~1–2%-different engines
+      ([#2](https://github.com/Jhawk414/F404-pyCycle/issues/2))
+- [ ] Resolve remaining cold/high-alt/max-AB Newton convergence failures
+      ([#3](https://github.com/Jhawk414/F404-pyCycle/issues/3))
+- [ ] Per-module test suite convention (`<module>_test.py`)
+      ([#5](https://github.com/Jhawk414/F404-pyCycle/issues/5))
+- [ ] Sync vendored `pycycle/` against upstream
+      ([#6](https://github.com/Jhawk414/F404-pyCycle/issues/6))
+- [ ] `deck/` as a durable, reviewed home for cycle-deck CSVs + solver logs
+- [ ] YAML-driven run configuration (`run.yml`) with pydantic validation
+- [ ] CLI entry point (`design` / `sweep` / `init-config` subcommands)
+- [ ] Auto-generated sweep-envelope coverage plot
+
+## Acknowledgments
+
+This repo is a fork of NASA Glenn's
+[pyCycle](https://github.com/OpenMDAO/pyCycle) (`om-pycycle` on PyPI),
+built on the [OpenMDAO](https://openmdao.org/) framework. The `pycycle/`
+library code, `setup.py`, and `example_cycles/` are vendored upstream
+scaffolding, not F404-specific.
+
+If you use pyCycle itself, please cite:
+
+> E. S. Hendricks and J. S. Gray, "pyCycle: A Tool for Efficient
+> Optimization of Gas Turbine Engine Cycles," *Aerospace*, vol. 6, iss. 87,
+> 2019. doi:10.3390/aerospace6080087
+
+## License
+
+Apache License 2.0 — see [`meta/LICENSE.txt`](meta/LICENSE.txt) (inherited
+from upstream pyCycle).
