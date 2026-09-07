@@ -22,7 +22,8 @@ F404 performance data.
 ## Table of contents
 
 - [Repo layout](#repo-layout)
-- [Architecture and data flow](#architecture-and-data-flow)
+- [Cycle architecture](#cycle-architecture)
+- [Software architecture and data flow](#software-architecture-and-data-flow)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Current status](#current-status)
@@ -46,12 +47,26 @@ current layout.
 | `run_design_od.py` | Single DESIGN and OD point runner for regression checking |
 | `printer.py` | Console table formatter for DESIGN/OD results |
 | `deck/` | Cycle-deck output CSVs |
-| `improvements/` | Roadmap notes and planning docs |
+| `docs/` | System architecture diagrams (`f404_cycle.d2`, `f404_cycle.svg`) and planning docs |
 | `AGENTS/` | Session handoff notes |
 | `meta/` | Vendored-library provenance (`LICENSE.txt`, upstream `release_notes.md`) |
 | `pycycle/`, `setup.py`, `pyproject.toml`, `example_cycles/` | Vendored upstream `pyCycle` library |
 
-## Architecture and data flow
+## Cycle architecture
+
+The thermodynamic cycle model in `engine_model.py` (`MixedFlowTurbofan`) represents the twin-spool, mixed-flow, augmented F404 turbofan engine:
+
+![F404 Turbofan Cycle Architecture](docs/f404_cycle.svg)
+
+*Diagram source maintained in [`docs/f404_cycle.d2`](docs/f404_cycle.d2).*
+
+Key thermodynamic stations and mechanical couplings:
+- **Low Pressure (LP) Spool**: 3-stage fan driven by the single-stage LP turbine via `lp_shaft` (10,000 rpm).
+- **High Pressure (HP) Spool**: 7-stage HP compressor driven by the single-stage HP turbine via `hp_shaft` (14,000 rpm, 250 hp customer power extraction).
+- **Cooling Bleeds**: HPC interstage bleed (`cool1`, 5.07% flow) cools the LPT; Station 3 compressor discharge bleed (`cool3`, 11.0% flow) cools the HPT.
+- **Mixed Exhaust & Augmentor**: Core flow and bypass flow mix in a confluent mixer (`ER ≈ 1.0`), feed into the afterburner duct (active combustor in wet mode, pass-through in dry mode), and expand through a variable convergent-divergent nozzle (`mixed_nozz`).
+
+## Software architecture and data flow
 
 Current data flow from CLI invocation to output CSV. This diagram reflects
 module boundaries before the planned restructure in issue #4.
@@ -154,7 +169,7 @@ Done:
 - [x] Dry (mil) / wet (max-AB) mode split, with convergence-detection bugs
       fixed (bound-saturated states no longer reported as converged)
 
-Planned (see `improvements/IMPROVEMENTS.md` for full detail):
+Planned (see `docs/improvements/IMPROVEMENTS.md` for full detail):
 
 - [ ] `src/` restructure: separate F404 app code from vendored pyCycle
       library ([#4](https://github.com/Jhawk414/F404-pyCycle/issues/4))
