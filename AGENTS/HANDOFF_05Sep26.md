@@ -1,13 +1,14 @@
 # Handoff: F404-pyCycle — Off-Design Sweep Convergence
 
 Supersedes `HANDOFF_22Apr26.md` (stale — written before the dry/wet mode
-question was resolved). That file should be deleted once this one is
-reviewed; see `IMPROVEMENTS.md` for the broader repo cleanup this implies.
+question was resolved). Ryan is deleting that file directly.
 
-## Branch: `feature/alt-mach-sweep` — status: ready to close out
+## Branch: `feature/alt-mach-sweep` — status: merged & deleted
 
-The branch's original goal (add altitude/Mach/dTs sweeping on top of the
-modular cycle-deck architecture) is done. What shipped, oldest to newest:
+Merged to `main` via [PR #1](https://github.com/Jhawk414/F404-pyCycle/pull/1)
+(merge commit `576a7b9`). Both the local and remote copies of the branch
+have since been deleted — the commits below live on permanently through
+`main`'s history. What shipped, oldest to newest:
 
 1. **`026467f`** — Refactored the monolithic `MFTF_od_CRZ.py` into a modular
    architecture: `engine_model.py` (single-point cycle), `mp_cycle.py`
@@ -17,7 +18,7 @@ modular cycle-deck architecture) is done. What shipped, oldest to newest:
    (BPR/ER targets, initial conditions), widened DESIGN BPR bounds, anchored
    the wet DESIGN point at Tt7=3800 R (max AB — the correct F404 sizing
    corner instead of an arbitrary mid-AB point).
-3. **`51c9bb6`** (HEAD) — Fixed a family of convergence-detection bugs that
+3. **`51c9bb6`** — Fixed a family of convergence-detection bugs that
    were producing cycle-deck CSVs full of garbage "converged" rows
    (Fn > 100,000 lbf, BPR clipped to 1.0, LP_Nmech at its 500 rpm floor):
    - Dry-mode afterburner is now a `pyc.Duct`, not a zero-FAR `Combustor`
@@ -40,6 +41,11 @@ modular cycle-deck architecture) is done. What shipped, oldest to newest:
    - Silenced a debug `print()` in pyCycle's `static_ps_resid.py` that fired
      on every Newton iteration touching negative gamma — was burying sweep
      status under thousands of lines of terminal spam.
+4. Housekeeping commits moving upstream scaffolding into `meta/`
+   (`LICENSE.txt`) and planning docs into `improvements/`
+   (`IMPROVEMENTS.md`, `single_engine_mode.md`), plus several
+   roadmap-only commits adding new items to `IMPROVEMENTS.md` (sweep
+   coverage plot, YAML run config, CLI entry point — none implemented yet).
 
 ### Current convergence results
 
@@ -54,44 +60,75 @@ MN=0.001 (static/runway), 4 power levels per mode.
 Both modes: every point with dTs ≥ 0 R converges. Failures are
 concentrated at cold (dTs < 0 R) + high-altitude + max-AB corners — these
 appear to be genuinely hard for Newton from any warm-start tried so far,
-not an artifact of the convergence-detection bugs above.
+not an artifact of the convergence-detection bugs above. Tracked as
+[issue #3](https://github.com/Jhawk414/F404-pyCycle/issues/3).
 
-### Known open issue — not part of this branch's scope
+## What happened after this branch closed
 
-`docs/single_engine_mode.md` documents that dry and wet sweeps currently
-size **two slightly different engines** (~1-2% difference in W, BPR, map
-scalars) because each mode runs its own independent DESIGN solve. Two
-resolution paths are laid out there (snapshot-and-inject vs. an
-always-live FAR_ab balance). This is real-engine-fidelity work, not sweep
-infrastructure — it belongs in a new, more targeted branch (see
-`IMPROVEMENTS.md`).
+1. Opened [PR #1](https://github.com/Jhawk414/F404-pyCycle/pull/1) against
+   `master`, with a summary + an "Approaches and alternatives" section
+   pointing back at this handoff and at `improvements/single_engine_mode.md`.
+2. Filed the deferred/roadmap items as real GitHub issues instead of only
+   living in `IMPROVEMENTS.md` prose (issues were enabled on the repo for
+   this purpose):
+   - [#2](https://github.com/Jhawk414/F404-pyCycle/issues/2) — dry/wet
+     modes size two slightly different engines (~1-2% variance).
+   - [#3](https://github.com/Jhawk414/F404-pyCycle/issues/3) — OD sweep
+     non-convergence at cold/high-alt/max-AB corners (includes possible
+     fixes: relax the fixed `RlineMap` target, widen `_OD_BOUNDS`, denser
+     bridge points, per-corner solver tuning).
+   - [#4](https://github.com/Jhawk414/F404-pyCycle/issues/4) — move F404
+     app code into `/src/`. Has a follow-up comment flagging that
+     `release_notes.md` still needs its planned `git mv` to `meta/`
+     (staged once, never committed — the commit was lost with the branch
+     cleanup below; it's back at repo root on `main`, still pending).
+   - [#5](https://github.com/Jhawk414/F404-pyCycle/issues/5) — add a
+     per-module `<module>_test.py` regression/test suite convention.
+   - [#6](https://github.com/Jhawk414/F404-pyCycle/issues/6) — sync vendored
+     `pycycle/` against upstream `OpenMDAO/pyCycle`; concretely, this
+     fork's `thermo_add.py` is missing the NumPy 2.x `.item()` fix from
+     upstream [pyCycle#117](https://github.com/OpenMDAO/pyCycle/pull/117)
+     (authored from this fork's now-deleted `fix/thermo-add-numpy2-compat`
+     branch, merged upstream 2026-05-20).
+3. Merged PR #1 into `master` (merge commit `576a7b9`).
+4. Renamed the repo's default branch `master` → `main` (via GitHub repo
+   settings) and fixed the one hardcoded reference to the old name:
+   `.github/workflows/pycycle_test_workflow.yml`'s push/PR triggers
+   (commit `3caa85b`).
+5. Branch cleanup: deleted `feature/alt-mach-sweep` (fully merged into
+   `main`, safe) and `fix/thermo-add-numpy2-compat` (its fix is preserved
+   permanently via the merged upstream PR) — both locally and on the
+   remote.
+6. Set the repo description ("GE F404 mixed-flow turbofan cycle deck —
+   design-point sizing and altitude/Mach/dTs off-design sweeps, built on
+   OpenMDAO's pyCycle.") and added GitHub topics (`openmdao`, `pycycle`,
+   `turbofan`, `jet-engine`, `propulsion`, `gas-turbine`, `thermodynamics`,
+   `afterburner`, `f404`, `mdao`, `python`).
+7. Started tracking handoff docs properly: this file now lives at
+   `AGENTS/HANDOFF_05Sep26.md` (committed `bc656b1`) instead of sitting
+   untracked at repo root. It had been untracked long enough to almost get
+   lost during the branch cleanup in step 5 — only recovered because it
+   was caught in a `git stash` first. Future handoff docs should go in
+   `AGENTS/` and get committed promptly, not left loose.
 
-## Decision made this session
+## Remaining loose ends
 
-The user (Ryan) wants to:
-1. Close out `feature/alt-mach-sweep` — the sweep capability it set out to
-   build is done and validated (125/132 dry, 89/132 wet).
-2. Not continue stacking cycle-calibration / single-engine-sizing work on
-   top of this branch — that's a distinct goal from "add sweeping" and
-   deserves its own branch.
-3. Use a new branch for: (a) the single-engine-sizing refactor from
-   `docs/single_engine_mode.md`, and (b) a broader repo restructure (see
-   `IMPROVEMENTS.md`) before further cycle calibration work continues.
+- `release_notes.md` → `meta/release_notes.md` rename — still not done
+  (see issue #4 comment). One-line `git mv`.
+- `HANDOFF_22Apr26.md` — Ryan is deleting this directly.
+- Everything else from the branch's original "uncommitted/untracked items"
+  list (`single_engine_mode.md`, `cycle_deck_wet.csv`, the `*_out/` sweep
+  artifact directories, the `test_modes` `.rtf` note) was resolved by the
+  time the branch merged — either committed to a permanent home or
+  cleared out.
 
-## Uncommitted / untracked items to resolve before closing the branch
+## Next up
 
-- `docs/single_engine_mode.md` — staged, not committed. Commit it (it's a
-  planning doc, useful regardless of which branch continues the work) or
-  move it into whatever new branch picks up that thread.
-- `HANDOFF_22Apr26.md` — stale, superseded by this file. Delete.
-- `cycle_deck_wet.csv` (root) — sweep output artifact, untracked. See
-  `IMPROVEMENTS.md` for where validated decks should live long-term;
-  either delete this one or move it once that structure exists.
-- `sweep_full_envelope_out/`, `sweep_full_envelope2_out/`, `test_modes_out/`,
-  `test_modes2_out/` — sweep run artifacts, untracked. Safe to delete once
-  their contents are no longer needed for reference.
-- `test_modes good run 23Apr26 .rtf` — untracked note file; fold anything
-  useful into this handoff or delete.
+- New branch `docs/handoff-and-readme-refresh` (this one) — README rewrite
+  is next, in a separate chat/context.
+- After that: work through issues #2–#6 above, likely each in its own
+  narrowly-scoped branch per the branch-hygiene note in
+  `improvements/IMPROVEMENTS.md` item 4.
 
 ## Key F404 model parameters (for reference)
 
