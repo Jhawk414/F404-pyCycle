@@ -110,22 +110,23 @@ def print_burner(prob, element_names, file=sys.stdout):
     line_tmpl = '{:<20}|'+'{:>11}'*4
     print(line_tmpl.format('Burner', 'dPqP', 'TtOut', 'Wfuel', 'FAR'), file=file, flush=True)
 
-    # line_tmpl = '{:<20}|'+'{:11.3f}'*4
     line_tmpl = '{:<20}|{:11.4f}{:11.2f}{:11.4f}{:11.5f}'
 
     for e_name in element_names:
-
         point, _, element = e_name.rpartition(".")
+        try:
+            W_fuel = get_val(prob, point, element, 'Wfuel')
+            W_tot  = get_val(prob, point, element, 'Fl_O:stat:W')
+            W_air  = W_tot - W_fuel
+            FAR    = W_fuel / W_air if W_air > 0.0 else 0.0
+            dPqP   = get_val(prob, point, element, 'dPqP')
+            T_tot  = get_val(prob, point, element, 'Fl_O:tot:T')
+            print(line_tmpl.format(e_name, dPqP, T_tot, W_fuel, FAR),
+                  file=file, flush=True)
+        except Exception as exc:
+            print(f"  !! {e_name}: could not read — {exc}", file=file, flush=True)
 
-        W_fuel = get_val(prob, point, element, 'Wfuel')
-        W_tot = get_val(prob, point, element, 'Fl_O:stat:W')
-        W_air = W_tot - W_fuel
-        FAR = W_fuel/W_air
-        dPqP = get_val(prob, point, element, 'dPqP')
-        T_tot = get_val(prob, point, element, 'Fl_O:tot:T')
-
-        print(line_tmpl.format(e_name, dPqP, T_tot, W_fuel, FAR),
-              file=file, flush=True)
+    print("-"*len_header, file=file, flush=True)
 
 
 def print_turbine(prob, element_names, file=sys.stdout):
