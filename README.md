@@ -99,3 +99,51 @@ one with `design=True` (DESIGN point, solved once to size the engine) and
 one with `design=False` (the OD point, re-solved at each sweep condition)
 — and connects the DESIGN instance's converged map scalars and station
 areas into the OD instance so off-design results reflect the sized engine.
+
+## Installation
+
+This repo vendors OpenMDAO's `pyCycle` library directly rather than
+installing it from PyPI, so install in editable mode from a local clone:
+
+```bash
+git clone git@github.com:Jhawk414/F404-pyCycle.git
+cd F404-pyCycle
+pip install -e .[all]
+```
+
+Requires Python 3.9+ and OpenMDAO 3.10.0+ (pulled in automatically).
+
+## Usage
+
+Run a single DESIGN + off-design point (fast sanity check, a few seconds):
+
+```bash
+python run_design_od.py
+```
+
+Run the full altitude/dTs/throttle sweep, both dry and wet/AB modes:
+
+```bash
+python sweep_full_envelope.py --mode both
+```
+
+Use `--mode dry` or `--mode wet` to run just one mode. Results are written
+to `cycle_deck_dry.csv`, `cycle_deck_wet.csv`, and (when both modes run)
+`cycle_deck_full_envelope.csv` in the current directory — `deck/` is the
+proposed durable home for reviewed/accepted deck files (see
+[Roadmap](#roadmap)), not yet where the script writes by default.
+
+## Current status
+
+Latest full-envelope sweep (`sweep_full_envelope.py --mode both`) at
+alt ∈ {0, 2500, 5000} ft, dTs ∈ {0, ±10, ±20, ±30, ±40, ±50} R, static
+(MN ≈ 0.001), 4 throttle levels per mode:
+
+| Mode | Converged | Throttle sweep |
+|---|---|---|
+| Dry | 125 / 132 | Tt4 3100 → 2500 R |
+| Wet | 89 / 132 | Tt7 3800 → 3200 R (Tt4 fixed at 3100 R mil) |
+
+Every point with dTs ≥ 0 R converges. Failures concentrate at cold
+(dTs < 0 R) + high-altitude + max-AB corners — tracked in
+[issue #3](https://github.com/Jhawk414/F404-pyCycle/issues/3).
