@@ -60,11 +60,11 @@ The thermodynamic cycle model in `engine_model.py` (`MixedFlowTurbofan`) represe
 
 *Diagram source maintained in [`docs/f404_cycle.d2`](docs/f404_cycle.d2).*
 
-Key thermodynamic stations and mechanical couplings:
+Key cycle components and mechanical couplings:
 - **Low Pressure (LP) Spool**: 3-stage fan driven by the single-stage LP turbine via `lp_shaft` (10,000 rpm).
 - **High Pressure (HP) Spool**: 7-stage HP compressor driven by the single-stage HP turbine via `hp_shaft` (14,000 rpm, 250 hp customer power extraction).
-- **Cooling Bleeds**: HPC interstage bleed (`cool1`, 5.07% flow) cools the LPT; Station 3 compressor discharge bleed (`cool3`, 11.0% flow) cools the HPT.
-- **Mixed Exhaust & Augmentor**: Core flow and bypass flow mix in a confluent mixer (`ER ≈ 1.0`), feed into the afterburner duct (active combustor in wet mode, pass-through in dry mode), and expand through a variable convergent-divergent nozzle (`mixed_nozz`).
+- **Cooling Bleeds**: HPC interstage bleed (`cool1`, 5.07% flow) cools the LPT; compressor discharge bleed (`cool3`, 11.0% flow) cools the HPT.
+- **Mixed Exhaust & Augmentor**: Core flow and bypass flow mix in a confluent mixer, feed into the afterburner duct (active combustor in wet mode, pass-through in dry mode), and expand through a variable convergent-divergent nozzle (`mixed_nozz`).
 
 ## Software architecture and data flow
 
@@ -152,7 +152,7 @@ alt ∈ {0, 2500, 5000} ft, dTs ∈ {0, ±10, ±20, ±30, ±40, ±50} R, static
 | Mode | Converged | Throttle sweep |
 |---|---|---|
 | Dry | 125 / 132 | Tt4 3100 → 2500 R |
-| Wet | 89 / 132 | Tt7 3800 → 3200 R (Tt4 fixed at 3100 R mil) |
+| Wet | 89 / 132 | Tt7 3800 → 3200 R (Tt4 fixed at 3100 R MIL) |
 
 All points with dTs ≥ 0 R converge. Solver failures concentrate at cold
 (dTs < 0 R), high-altitude, maximum afterburning conditions, tracked in
@@ -166,7 +166,7 @@ Done:
       the original monolithic `MFTF_od_CRZ.py`
 - [x] Full alt/dTs/throttle sweep infrastructure with bridge-point
       warm-starting (`sweep_utils.py`)
-- [x] Dry (mil) / wet (max-AB) mode split, with convergence-detection bugs
+- [x] Dry (MIL) / wet (max-AB) mode split, with convergence-detection bugs
       fixed (bound-saturated states no longer reported as converged)
 
 Planned (see `docs/improvements/IMPROVEMENTS.md` for full detail):

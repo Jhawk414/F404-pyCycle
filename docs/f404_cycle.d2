@@ -1,155 +1,34 @@
 direction: right
 
-title: "GE F404 Turbofan Cycle Architecture (pyCycle Model)" {
-  near: top-center
-  shape: text
-  style: {
-    font-size: 28
-    bold: true
-  }
+inlet: "Inlet"
+fan: "Fan\n10,000 rpm"
+splitter: "Splitter"
+bypass_duct: "Bypass Duct"
+hpc: "HPC\n14,000 rpm"
+bld3: "Bleed 3"
+burner: "Combustor\nTt4: 3100 °R (MIL)"
+hpt: "HPT"
+lpt: "LPT"
+mixer: "Mixer"
+afterburner: "Afterburner\nTt7: 3800 °R (Max AB)"
+nozzle: "Nozzle\nNet Thrust (Fn)"
+
+inlet -> fan -> splitter
+
+# Bypass defined FIRST:
+splitter -> bypass_duct -> mixer: {
+  style: { stroke: "#2563EB"; stroke-width: 2 }
 }
 
-classes: {
-  core_flow: {
-    style: {
-      stroke: "#1E3A8A"
-      stroke-width: 3
-    }
-  }
-  bypass_flow: {
-    style: {
-      stroke: "#0284C7"
-      stroke-width: 2
-      stroke-dash: 3
-    }
-  }
-  bleed_flow: {
-    style: {
-      stroke: "#0D9488"
-      stroke-width: 2
-      stroke-dash: 4
-    }
-  }
-  shaft_link: {
-    style: {
-      stroke: "#B45309"
-      stroke-width: 3
-      stroke-dash: 2
-    }
-  }
+# Core defined SECOND:
+splitter -> hpc -> bld3 -> burner -> hpt -> lpt -> mixer -> afterburner -> nozzle: {
+  style: { stroke: "#1E293B"; stroke-width: 2 }
 }
 
-# ── 1. AMBIENT & INLET SECTION ──────────────────────────────────────────
-inlet_section: "Inlet & Fan Section (LP Spool)" {
-  style.fill: "#F8FAFC"
-  style.stroke: "#64748B"
-
-  fc: "Flight Conditions\n(fc)\nSta 0: Alt, Mach, dTs" {
-    shape: oval
-    style.fill: "#E0F2FE"
-    style.stroke: "#0284C7"
-  }
-  inlet: "Inlet (inlet)\nSta 1: Ram Recovery\nram_rec = 0.999"
-  inlet_duct: "Inlet Duct (inlet_duct)\nSta 2 · dP/P = 0.0107"
-  fan: "3-Stage Fan (fan)\nAXI5 Map · PR ~3.2\nSta 2 -> 2.1\nLP_Nmech = 10,000 rpm" {
-    style.fill: "#E0E7FF"
-    style.stroke: "#4338CA"
-  }
-  splitter: "Flow Splitter (splitter)\nSta 2.1 · BPR Split\nBPR ~0.25-0.34" {
-    shape: diamond
-  }
-
-  fc -> inlet: "Freestream Air" { class: core_flow }
-  inlet -> inlet_duct: "Fl_O (Sta 1)" { class: core_flow }
-  inlet_duct -> fan: "Fl_O (Sta 2)" { class: core_flow }
-  fan -> splitter: "Fl_O (Sta 2.1)" { class: core_flow }
+# Shafts:
+hpc <-> hpt: "HP Shaft (14,000 rpm)" {
+  style: { stroke: "#D97706"; stroke-width: 2; stroke-dash: 2 }
 }
-
-# ── 2. BYPASS STREAM ────────────────────────────────────────────────────
-bypass_section: "Bypass Duct" {
-  style.fill: "#F0F9FF"
-  style.stroke: "#0284C7"
-
-  bypass_duct: "Bypass Duct (bypass_duct)\nSta 13 / 2.3 · dP/P = 0.015\nTransports Fan Bypass Air"
+fan <-> lpt: "LP Shaft (10,000 rpm)" {
+  style: { stroke: "#D97706"; stroke-width: 2; stroke-dash: 2 }
 }
-
-# ── 3. CORE GAS GENERATOR ───────────────────────────────────────────────
-core_section: "Core Stream (HP Spool & Turbines)" {
-  style.fill: "#FFFBEB"
-  style.stroke: "#D97706"
-
-  splitter_core_duct: "Core Duct (splitter_core_duct)\nSta 2.2 · dP/P = 0.0048"
-  hpc: "7-Stage HPC (hpc)\nHPCMap · PR ~7.5\nSta 2.5 -> 3\nHP_Nmech = 14,000 rpm" {
-    style.fill: "#FEF3C7"
-    style.stroke: "#B45309"
-  }
-  bld3: "Station 3 Bleed (bld3)\nCompressor Exit Bleed\nSta 3"
-  burner: "Main Combustor (burner)\nJet-A Fuel (FAR Balance)\nSta 3 -> 4 · Tt4 = 3100 °R mil" {
-    style.fill: "#FEE2E2"
-    style.stroke: "#DC2626"
-  }
-  hpt: "1-Stage HPT (hpt)\nHPTMap · Drives HPC\nSta 4 -> 4.5" {
-    style.fill: "#FED7AA"
-    style.stroke: "#C2410C"
-  }
-  hpt_duct: "HPT Duct (hpt_duct)\nSta 4.5 · dP/P = 0.0051"
-  lpt: "1-Stage LPT (lpt)\nLPTMap · Drives Fan\nSta 4.5 -> 5" {
-    style.fill: "#E0E7FF"
-    style.stroke: "#4338CA"
-  }
-  lpt_duct: "LPT Duct (lpt_duct)\nSta 5 · dP/P = 0.0107"
-
-  splitter_core_duct -> hpc: "Fl_O (Sta 2.5)" { class: core_flow }
-  hpc -> bld3: "Fl_O (Sta 3)" { class: core_flow }
-  bld3 -> burner: "Fl_O" { class: core_flow }
-  burner -> hpt: "Fl_O (Sta 4)" { class: core_flow }
-  hpt -> hpt_duct: "Fl_O (Sta 4.5)" { class: core_flow }
-  hpt_duct -> lpt: "Fl_O" { class: core_flow }
-  lpt -> lpt_duct: "Fl_O (Sta 5)" { class: core_flow }
-}
-
-# ── 4. EXHAUST & AUGMENTOR SYSTEM ───────────────────────────────────────
-exhaust_section: "Mixed Exhaust & Augmentor System" {
-  style.fill: "#FEF2F2"
-  style.stroke: "#EF4444"
-
-  mixer: "Core / Bypass Mixer (mixer)\nSta 6 · ER ≈ 1.0 (Pt match)\nDesigned Stream = 1 (Core)" {
-    shape: diamond
-  }
-  mixer_duct: "Mixer Duct (mixer_duct)\ndP/P = 0.0107"
-  afterburner: "Afterburner / Augmentor (afterburner)\nDry Mode: Duct (zero-fuel pass-through)\nWet Mode: Combustor (Tt7 = 3800 °R max AB)" {
-    style.fill: "#FECACA"
-    style.stroke: "#B91C1C"
-  }
-  mixed_nozz: "Variable Exhaust Nozzle (mixed_nozz)\nCD Type (Convergent-Divergent)\nSta 7 -> 8 (throat) -> 9 (exit)" {
-    style.fill: "#FCA5A5"
-    style.stroke: "#991B1B"
-  }
-
-  mixer -> mixer_duct: "Fl_O (Sta 6)" { class: core_flow }
-  mixer_duct -> afterburner: "Fl_O" { class: core_flow }
-  afterburner -> mixed_nozz: "Fl_O (Sta 7)" { class: core_flow }
-}
-
-# ── STREAM SPLITTING AND MIXING ─────────────────────────────────────────
-inlet_section.splitter -> bypass_section.bypass_duct: "Fl_O2 (Bypass Stream)" { class: bypass_flow }
-inlet_section.splitter -> core_section.splitter_core_duct: "Fl_O1 (Core Stream)" { class: core_flow }
-
-bypass_section.bypass_duct -> exhaust_section.mixer: "Fl_I2 (Bypass In)" { class: bypass_flow }
-core_section.lpt_duct -> exhaust_section.mixer: "Fl_I1 (Core In)" { class: core_flow }
-
-# ── PERFORMANCE & THRUST OUTPUT ─────────────────────────────────────────
-perf: "Performance Calculations (perf)\nNet Thrust: Fn = Fg - F_ram\nTSFC = Wfuel / Fn\nOPR = PR_fan × PR_hpc" {
-  shape: oval
-  style.fill: "#DCFCE7"
-  style.stroke: "#16A34A"
-}
-exhaust_section.mixed_nozz -> perf: "Gross Thrust (Fg)" { class: core_flow }
-
-# ── MECHANICAL SPOOLS (SHAFTS) ──────────────────────────────────────────
-core_section.hpc <-> core_section.hpt: "HP Shaft (hp_shaft)\n14,000 rpm · HPX = 250 hp PTO" { class: shaft_link }
-inlet_section.fan <-> core_section.lpt: "LP Shaft (lp_shaft)\n10,000 rpm" { class: shaft_link }
-
-# ── TURBINE COOLING BLEED CIRCUITS ──────────────────────────────────────
-core_section.hpc -> core_section.lpt: "cool1 bleed (5.07% Wc)\nHPC interstage -> LPT cooling" { class: bleed_flow }
-core_section.bld3 -> core_section.hpt: "cool3 bleed (11.0% W3)\nCompressor exit -> HPT cooling" { class: bleed_flow }
