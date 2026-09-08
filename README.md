@@ -1,147 +1,202 @@
-[![GitHub Actions Test Badge][1]][2]
-[![PyPI version][3]][4]
+[![CI](https://github.com/Jhawk414/F404-pyCycle/actions/workflows/pycycle_test_workflow.yml/badge.svg)](https://github.com/Jhawk414/F404-pyCycle/actions)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](meta/LICENSE.txt)
 
-# pyCycle
---------------
+# F404-pyCycle
 
-This is a thermodynamic cycle modeling library, designed primarily to model jet engine performance.
-It is built on top of the OpenMDAO framework and the design is heavily inspired by NASA's NPSS software.
-You need to be at least familiar with either OpenMDAO or NPSS in order to be successful in using this library.
+A GE F404 twin-spool, low-bypass, mixed-flow, afterburning turbofan cycle model
+with design-point sizing and off-design flight sweeps, built on
+[NASA Glenn's pyCycle](https://github.com/OpenMDAO/pyCycle) and
+[OpenMDAO](https://openmdao.org/).
 
-Disclosure: The docs are nearly non-existent. We're hoping to improve this, but for the moment this is what you get.
-We suggest you look in the examples folder for some indications of how to run this code.
-Also, you can read [the paper on pyCycle](https://www.mdpi.com/2226-4310/6/8/87/pdf) which goes into a lot of detail that is very relevant.
+Given a target thrust and component parameters (fan and HPC pressure ratios,
+component efficiencies, cooling bleed fractions), the model sizes the engine
+at sea-level-static conditions and sweeps altitude, ambient temperature offset,
+and throttle to generate a converged off-design performance deck.
 
-## OpenMDAO Version Compatibility
-----------------------------------
-pyCycle is built on top of OpenMDAO, and thus depends on it.
-Here is the OpenMDAO version you need for the specific versions of pyCycle
+**Status:** In development. Single-engine model with separate dry (military
+power) and wet (afterburning) design points and altitude/dTs/throttle sweep
+infrastructure. See [Current status](#current-status) for convergence coverage
+and [Roadmap](#roadmap) for planned work. Not yet validated against public
+F404 performance data.
 
-| pyCycle version  | OpenMDAO version  |
-| -----------------| ----------------  |
-| 3.0.0            | 2.8.0 thru 3.1.1  |
-| 3.2.0            | 3.2.0 thru 3.5.0  |
-| 3.4.0            | 3.3.0 thru 3.5.0  |
-| 3.5.0            | 3.5.0 thru 3.7.0  |
-| 4.0.0            | 3.7.0 or greater  |
-| 4.1.x            | 3.10.0 or greater |
-| 4.2.0            | 3.10.0 or greater |
+## Table of contents
 
-## Version 4.2 --- PyPI release
-No significant code changes, but minor adjustments to the package name in `setup.py` to enable publishing to PyPI.
+- [Repo layout](#repo-layout)
+- [Cycle architecture](#cycle-architecture)
+- [Software architecture and data flow](#software-architecture-and-data-flow)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Current status](#current-status)
+- [Roadmap](#roadmap)
+- [Acknowledgments](#acknowledgments)
+- [License](#license)
 
-## Citation
+## Repo layout
 
-If you use pyCycle, please cite this paper:
+F404 model code currently resides at the repository root alongside the vendored
+upstream `pycycle` library. Issue [#4](https://github.com/Jhawk414/F404-pyCycle/issues/4)
+tracks moving the F404 files into `src/F404_pycycle/`. Paths below reflect the
+current layout.
 
-*E. S. Hendricks and J. S. Gray, “Pycycle: a tool for efficient optimization of gas turbine engine cycles,” Aerospace, vol. 6, iss. 87, 2019.*
+| Path | Role |
+|---|---|
+| `engine_model.py` | `MixedFlowTurbofan(pyc.Cycle)`: single-point thermodynamic cycle (fan, HPC, burner, HPT/LPT, mixer, afterburner, nozzle) |
+| `mp_cycle.py` | `MPMixedFlowTurbofan(pyc.MPCycle)`: links a DESIGN point and an off-design (OD) point, transferring map scalars and station areas |
+| `sweep_utils.py` | Sweep infrastructure: snake-pattern sweep grid, bridge-point warm-starting, `SweepRunner`, result extraction |
+| `sweep_full_envelope.py` | CLI driver: runs the alt/dTs/throttle sweep for dry, wet, or both modes |
+| `run_design_od.py` | Single DESIGN and OD point runner for regression checking |
+| `printer.py` | Console table formatter for DESIGN/OD results |
+| `deck/` | Cycle-deck output CSVs |
+| `docs/` | System architecture diagrams (`f404_cycle.d2`, `f404_cycle.svg`) and planning docs |
+| `AGENTS/` | Session handoff notes |
+| `meta/` | Vendored-library provenance (`LICENSE.txt`, upstream `release_notes.md`) |
+| `pycycle/`, `setup.py`, `pyproject.toml`, `example_cycles/` | Vendored upstream `pyCycle` library |
 
-    @article{Hendricks2019,
-    author="Eric S. Hendricks and Justin S. Gray" ,
-    title = "pyCycle: A Tool for Efficient Optimization of Gas Turbine Engine Cycles",
-    journal = "Aerospace",
-    year = "2019",
-    day = "8",
-    month = "August",
-    volume = {6},
-    number = {87},
-    doi = {10.3390/aerospace6080087},
-    }
+## Cycle architecture
+
+The thermodynamic cycle model in `engine_model.py` (`MixedFlowTurbofan`) represents the twin-spool, mixed-flow, augmented F404 turbofan engine:
+
+![F404 Turbofan Cycle Architecture](docs/f404_cycle.svg)
+
+*Diagram source maintained in [`docs/f404_cycle.d2`](docs/f404_cycle.d2).*
+
+Key cycle components and mechanical couplings:
+- **Low Pressure (LP) Spool**: 3-stage fan driven by the single-stage LP turbine via `lp_shaft` (10,000 rpm).
+- **High Pressure (HP) Spool**: 7-stage HP compressor driven by the single-stage HP turbine via `hp_shaft` (14,000 rpm, 250 hp customer power extraction).
+- **Cooling Bleeds**: HPC interstage bleed (`cool1`, 5.07% flow) cools the LPT; compressor discharge bleed (`cool3`, 11.0% flow) cools the HPT.
+- **Mixed Exhaust & Augmentor**: Core flow and bypass flow mix in a confluent mixer, feed into the afterburner duct (active combustor in wet mode, pass-through in dry mode), and expand through a variable convergent-divergent nozzle (`mixed_nozz`).
+
+## Software architecture and data flow
+
+Current data flow from CLI invocation to output CSV. This diagram reflects
+module boundaries before the planned restructure in issue #4.
+
+```mermaid
+flowchart TD
+    subgraph Drivers["Entry-point scripts (repo root)"]
+        A["sweep_full_envelope.py<br/>--mode dry|wet|both"]
+        B["run_design_od.py<br/>single DESIGN + OD point"]
+    end
+
+    subgraph Model["Cycle model"]
+        C["mp_cycle.py<br/>MPMixedFlowTurbofan(pyc.MPCycle)<br/>wires DESIGN + OD points"]
+        D["engine_model.py<br/>MixedFlowTurbofan(pyc.Cycle)<br/>single-point thermodynamic cycle"]
+    end
+
+    subgraph Sweep["Sweep infrastructure"]
+        E["sweep_utils.py<br/>build_snake_sweep · generate_bridge_points<br/>SweepRunner · extract_od_results"]
+    end
+
+    subgraph Output["Output"]
+        F["printer.py<br/>page_viewer() console tables"]
+        G["deck/*.csv<br/>cycle_deck_dry / _wet / _full_envelope"]
+    end
+
+    A --> C
+    B --> C
+    C --> D
+    A --> E
+    E --> C
+    E --> G
+    A --> F
+    B --> F
+```
+
+`mp_cycle.py` instantiates `MixedFlowTurbofan` twice: once with `design=True`
+(DESIGN point, solved once to size the engine) and once with `design=False`
+(OD point, re-solved at each sweep condition). It passes converged map scalars
+and station areas from the DESIGN instance into the OD instance so off-design
+calculations use the sized engine geometry.
 
 ## Installation
 
-### PyPI
+This repository vendors OpenMDAO's `pyCycle` library. Install in editable mode
+from a local clone:
 
-    If you want to install from PyPI then do the following:
+```bash
+git clone git@github.com:Jhawk414/F404-pyCycle.git
+cd F404-pyCycle
+pip install -e .[all]
+```
 
-    pip install om-pycycle
+Requires Python 3.9+ and OpenMDAO 3.10.0+.
 
-    or, if you want to install the (optional) additional testing tools
+## Usage
 
-    pip install 'om-pycycle[all]'
+Run a single DESIGN and off-design point for verification:
 
-Why is it `om-pycycle` on PyPI?
-Because another package already claimed `pyCycle`!
-Note that the import does not change though.
-You still use `import pycycle` regardless.
+```bash
+python run_design_od.py
+```
 
+Run the altitude/dTs/throttle sweep for dry and wet modes:
 
-### Clone
+```bash
+python sweep_full_envelope.py --mode both
+```
 
-clone this repo, and checkout the specific version you want to run:
+Use `--mode dry` or `--mode wet` to run an individual mode. Output files
+(`cycle_deck_dry.csv`, `cycle_deck_wet.csv`, or `cycle_deck_full_envelope.csv`)
+are written to the working directory. Moving output generation to `deck/` is
+tracked in [Roadmap](#roadmap).
 
-    git clone https://github.com/OpenMDAO/pyCycle
-    cd pyCycle
+## Current status
 
-You can see a list of all versions in the repo via:
+Latest full-envelope sweep (`sweep_full_envelope.py --mode both`) at
+alt ∈ {0, 2500, 5000} ft, dTs ∈ {0, ±10, ±20, ±30, ±40, ±50} R, static
+(MN ≈ 0.001), 4 throttle levels per mode:
 
-    git tag
+| Mode | Converged | Throttle sweep |
+|---|---|---|
+| Dry | 125 / 132 | Tt4 3100 → 2500 R |
+| Wet | 89 / 132 | Tt7 3800 → 3200 R (Tt4 fixed at 3100 R MIL) |
 
-Select one of those tags (e.g. 3.0.0)
+All points with dTs ≥ 0 R converge. Solver failures concentrate at cold
+(dTs < 0 R), high-altitude, maximum afterburning conditions, tracked in
+[issue #3](https://github.com/Jhawk414/F404-pyCycle/issues/3).
 
-    git checkout 3.0.0
+## Roadmap
 
-or for pyCycle V3.2.0:
+Done:
 
-    git checkout 3.2.0
+- [x] Modular cycle model (`engine_model.py` / `mp_cycle.py`), refactored off
+      the original monolithic `MFTF_od_CRZ.py`
+- [x] Full alt/dTs/throttle sweep infrastructure with bridge-point
+      warm-starting (`sweep_utils.py`)
+- [x] Dry (MIL) / wet (max-AB) mode split, with convergence-detection bugs
+      fixed (bound-saturated states no longer reported as converged)
 
-or for pyCycle V4.0.0:
+Planned (see `docs/improvements/IMPROVEMENTS.md` for full detail):
 
-    git checkout 4.0.0
+- [ ] `src/` restructure: separate F404 app code from vendored pyCycle
+      library ([#4](https://github.com/Jhawk414/F404-pyCycle/issues/4))
+- [ ] Single-engine sizing: unify dry and wet DESIGN points
+      ([#2](https://github.com/Jhawk414/F404-pyCycle/issues/2))
+- [ ] Resolve remaining cold/high-alt/max-AB Newton convergence failures
+      ([#3](https://github.com/Jhawk414/F404-pyCycle/issues/3))
+- [ ] Per-module test suite convention (`<module>_test.py`)
+      ([#5](https://github.com/Jhawk414/F404-pyCycle/issues/5))
+- [ ] Sync vendored `pycycle/` against upstream
+      ([#6](https://github.com/Jhawk414/F404-pyCycle/issues/6))
+- [ ] `deck/` as a durable, reviewed home for cycle-deck CSVs + solver logs
+- [ ] YAML-driven run configuration (`run.yml`) with pydantic validation
+- [ ] CLI entry point (`design` / `sweep` / `init-config` subcommands)
+- [ ] Auto-generated sweep-envelope coverage plot
 
-Use pip to install:
+## Acknowledgments
 
-    pip install -e .[all]
+This repo is a fork of NASA Glenn's
+[pyCycle](https://github.com/OpenMDAO/pyCycle) (`om-pycycle` on PyPI),
+built on the [OpenMDAO](https://openmdao.org/) framework. The `pycycle/`
+library code, `setup.py`, and `example_cycles/` are vendored upstream
+scaffolding, not F404-specific.
 
+If you use pyCycle itself, please cite:
 
-## Testing
+> E. S. Hendricks and J. S. Gray, "pyCycle: A Tool for Efficient
+> Optimization of Gas Turbine Engine Cycles," *Aerospace*, vol. 6, iss. 87,
+> 2019. doi:10.3390/aerospace6080087
 
-After installation if you wat to run the unit test suite you can do so via the `testflo` command:
+## License
 
-    testflo pycycle
-
-This will run all the unit tests within the pycycle repository, but note that it will NOT run the longer regression tests from the
-`example_cycles` folder.  These tests are written as 'benchmark' tests.
-If you want to run these tests, then you need to clone the repository, CD into the `example_cycles` folder and call
-
-    testflo -b .
-
-
-## Version 4.0 Announcements
-Version 4.0 officially supports multiple thermodynamic packages.
-Currently there are two: CEA (the original thermo solver) and the new TABULAR option.
-Although these are the only two current thermo packages, the code has been setup so that it is expandable to more later.
-
-The tabular thermodynamic is much simpler to use, and much faster to run.
-The downside is that it is tied to a specific pre-computed thermodynamic data set that is valid for a specific fuel type, and within a specific temperature range.
-We have included an [example script that shows how to generate your own tabular data set](example_cycles/tab_thermo_data_generator.py), which you would need to do for anything other than Jet-A fuel.
-Additionally the default tabular thermo data only support fuel (no water injection).
-If you want to use tabular thermo for a water injection case, you'll need to generate a new thermo data table.
-
-## Different thermos will give different answers!
-Please note that when you switch thermodynamics packages, you will get slightly different answers.
-Depending on how finely you sample your thermo data for the tabular package, the differences could be small to modest.
-If you see changes greater than 1% on any critical values then you should consider refining your thermodynamic data tables.
-
-### V4 is modestly backwards incompatible
-In order to modular thermodynamic happens, some modest changes to the API were needed.
-
-- The `Cycle`, introduced in V3.5.0, is now mandatory. You must build your cycle in this, instead of a basic OpenMDAO `Group`.
-- The `pyc_add_element` method has been deprecated (to be removed in version 4.1).
-  Improvements to the cycle class made it possible to stick with standard `add_subsystem` calls instead.
-- The arguments needed to be passed into Elements during instantiation have been changed (and for the most part significantly simplified).
-  The biggest change is that you no longer need to pass element lists to each Element any more. All of the thermodynamic arguments have now been moved up to the `Cycle` group.
-- There is a new `Element` class which must be the base class (or at least an ancestor class) for any component that contain flow-ports (anything you would point to in a call to `connect_flow` is an element).
-  This new base class has one additional method, `pyc_setup_output_ports` that is required for initialization of the fluid port data.
-  If you have developed any of your own custom Elements beyond the standard library, then note that you'll need to update them and define the new method in them.
-
-
-Over all the, changes are pretty minor, but their impact is significant.
-The changes to the Element initialization not only make models simpler,
-they also make them thermo-agnostic.
-
-[1]: https://github.com/OpenMDAO/pyCycle/actions/workflows/pycycle_test_workflow.yml/badge.svg "Github Actions Badge"
-[2]: https://github.com/OpenMDAO/pyCycle/actions "Github Actions"
-
-[3]: https://badge.fury.io/py/om-pycycle.svg "PyPI Version"
-[4]: https://badge.fury.io/py/om-pycycle "pyCycle @PyPI"
+Apache License 2.0. See [`meta/LICENSE.txt`](meta/LICENSE.txt).

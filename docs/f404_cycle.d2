@@ -1,0 +1,154 @@
+# Render with: d2 --pad 10 docs/f404_cycle.d2 docs/f404_cycle.svg
+# (default --pad is 100px, which leaves a lot of dead space around this
+# diagram's bounding box)
+direction: right
+
+diagram: {
+  label: ""
+  grid-rows: 6
+  vertical-gap: 12
+  style: { fill: transparent; stroke: transparent }
+
+  # Column widths/spacers below are hand-computed to match row_core's
+  # actual rendered column centers (s0, inlet, fan, splitter, hpc, burner,
+  # hpt, lpt, mixer, afterburner, nozzle, s9), so connectors dropping into
+  # row_core line up as near-verticals. Re-measure and update these if
+  # row_core's box labels/sizes change. Waypoints are 2px (~a point) so an
+  # incoming vertical and outgoing horizontal meet at the same spot instead
+  # of landing on different edges of a wide invisible box.
+
+  # Bleed's label sits in its own row (above the bypass row) so the
+  # bypass duct's horizontal connector doesn't run through the text.
+  # Height is kept small so the arrowhead lands right next to the text
+  # instead of at the far edge of a tall auto-sized box.
+  row_bleed_label: {
+    label: ""
+    grid-rows: 1
+    style: { fill: transparent; stroke: transparent }
+    sp0: "" { width: 430; height: 2; style: { fill: transparent; stroke: transparent } }
+    bleed_term: "Bleed 3" { height: 20; style: { fill: transparent; stroke: transparent } }
+  }
+
+  # bypass_duct lives in its own row, separate from the tiny anchor
+  # waypoints below -- if they shared a row, the grid would stretch the
+  # 2px anchors to match the box's full height, and the horizontal
+  # connector would land on their stretched bottom edge instead of their
+  # true top-center, leaving a visible gap under the "13"/"16" arrows.
+  row_bypass_box: {
+    label: ""
+    grid-rows: 1
+    style: { fill: transparent; stroke: transparent }
+    sp0: "" { width: 572; height: 2; style: { fill: transparent; stroke: transparent } }
+    bypass_duct: "Bypass Duct"
+  }
+
+  row_bypass_anchor: {
+    label: ""
+    grid-rows: 1
+    style: { fill: transparent; stroke: transparent }
+    sp0: "" { width: 347; height: 2; style: { fill: transparent; stroke: transparent } }
+    wp_byp_l: "" { width: 2; height: 2; style: { fill: transparent; stroke: transparent } }
+    sp1: "" { width: 599; height: 2; style: { fill: transparent; stroke: transparent } }
+    wp_byp_r: "" { width: 2; height: 2; style: { fill: transparent; stroke: transparent } }
+  }
+
+  row_core: {
+    label: ""
+    grid-rows: 1
+    style: { fill: transparent; stroke: transparent }
+
+    s0: "0" { shape: circle; width: 30; height: 30 }
+    inlet: "Inlet"
+    fan: "Fan (LPC)"
+    splitter: "Splitter"
+    hpc: "HPC"
+    burner: "Combustor\nTt4: 3100 °R (MIL)"
+    hpt: "HPT"
+    lpt: "LPT"
+    mixer: "Mixer"
+    afterburner: "Afterburner\nTt7: 3800 °R (Max AB)"
+    nozzle: "Nozzle\nNet Thrust (Fn)"
+    s9: "9" { shape: circle; width: 30; height: 30 }
+  }
+
+  # Each shaft is exactly 3 segments: a vertical leg down from the
+  # compressor, a horizontal leg parallel to the flowpath, and a vertical
+  # leg back up into the turbine. wp_*_l/wp_*_r are column-aligned with
+  # their real endpoints (hpc/hpt, fan/lpt) so both verticals are true
+  # perpendiculars -- no jogs, no diagonals.
+  row_shaft_hp: {
+    label: ""
+    grid-rows: 1
+    style: { fill: transparent; stroke: transparent }
+    sp0: "" { width: 474; height: 2; style: { fill: transparent; stroke: transparent } }
+    wp_hp_l: "" { width: 2; height: 2; style: { fill: transparent; stroke: transparent } }
+    sp1: "" { width: 241; height: 2; style: { fill: transparent; stroke: transparent } }
+    wp_hp_r: "" { width: 2; height: 2; style: { fill: transparent; stroke: transparent } }
+  }
+
+  row_shaft_lp: {
+    label: ""
+    grid-rows: 1
+    style: { fill: transparent; stroke: transparent }
+    sp0: "" { width: 201; height: 2; style: { fill: transparent; stroke: transparent } }
+    wp_lp_l: "" { width: 2; height: 2; style: { fill: transparent; stroke: transparent } }
+    sp1: "" { width: 626; height: 2; style: { fill: transparent; stroke: transparent } }
+    wp_lp_r: "" { width: 2; height: 2; style: { fill: transparent; stroke: transparent } }
+  }
+}
+
+# Core gas path: freestream through the nozzle
+diagram.row_core.s0 -> diagram.row_core.inlet: "" { style: { stroke: "#1E293B"; stroke-width: 2 } }
+diagram.row_core.inlet -> diagram.row_core.fan: "1" { style: { stroke: "#1E293B"; stroke-width: 2 } }
+diagram.row_core.fan -> diagram.row_core.splitter: "2" { style: { stroke: "#1E293B"; stroke-width: 2 } }
+diagram.row_core.splitter -> diagram.row_core.hpc: "2.5" { style: { stroke: "#1E293B"; stroke-width: 2 } }
+diagram.row_core.hpc -> diagram.row_core.burner: "3" { style: { stroke: "#1E293B"; stroke-width: 2 } }
+diagram.row_core.burner -> diagram.row_core.hpt: "4" { style: { stroke: "#1E293B"; stroke-width: 2 } }
+diagram.row_core.hpt -> diagram.row_core.lpt: "4.5" { style: { stroke: "#1E293B"; stroke-width: 2 } }
+diagram.row_core.lpt -> diagram.row_core.mixer: "5" { style: { stroke: "#1E293B"; stroke-width: 2 } }
+diagram.row_core.mixer -> diagram.row_core.afterburner: "6" { style: { stroke: "#1E293B"; stroke-width: 2 } }
+diagram.row_core.afterburner -> diagram.row_core.nozzle: "7 / 8" { style: { stroke: "#1E293B"; stroke-width: 2 } }
+diagram.row_core.nozzle -> diagram.row_core.s9: "" { style: { stroke: "#1E293B"; stroke-width: 2 } }
+
+# Bypass stream: splitter to mixer, around the core. bypass_duct is
+# centered directly over the combustor.
+diagram.row_core.splitter -> diagram.row_bypass_anchor.wp_byp_l: "13" { style: { stroke: "#2563EB"; stroke-width: 2 } }
+diagram.row_bypass_anchor.wp_byp_l -> diagram.row_bypass_box.bypass_duct: { style: { stroke: "#2563EB"; stroke-width: 2 } }
+diagram.row_bypass_box.bypass_duct -> diagram.row_bypass_anchor.wp_byp_r: { style: { stroke: "#2563EB"; stroke-width: 2 } }
+diagram.row_bypass_anchor.wp_byp_r -> diagram.row_core.mixer: "16" { style: { stroke: "#2563EB"; stroke-width: 2 } }
+
+# Bleed air off the HPC: a terminal flow (no element box), same style as
+# the keynote reference -- an arrow up from HPC ending in a label, not a
+# boxed node.
+diagram.row_core.hpc -> diagram.row_bleed_label.bleed_term: {
+  style: { stroke: "#94A3B8"; stroke-width: 2; stroke-dash: 3 }
+}
+
+# Shafts: right-angle brackets only (no diagonals), both centered under the
+# combustor and stacked close together. No arrowheads -- these are
+# mechanical connections, not one-way flow.
+diagram.row_core.hpc -> diagram.row_shaft_hp.wp_hp_l: {
+  style: { stroke: "#D97706"; stroke-width: 2; stroke-dash: 2 }
+  target-arrowhead.shape: none
+}
+diagram.row_shaft_hp.wp_hp_l -> diagram.row_shaft_hp.wp_hp_r: "HP Shaft (14,000 rpm)" {
+  style: { stroke: "#D97706"; stroke-width: 2; stroke-dash: 2 }
+  target-arrowhead.shape: none
+}
+diagram.row_shaft_hp.wp_hp_r -> diagram.row_core.hpt: {
+  style: { stroke: "#D97706"; stroke-width: 2; stroke-dash: 2 }
+  target-arrowhead.shape: none
+}
+
+diagram.row_core.fan -> diagram.row_shaft_lp.wp_lp_l: {
+  style: { stroke: "#D97706"; stroke-width: 2; stroke-dash: 2 }
+  target-arrowhead.shape: none
+}
+diagram.row_shaft_lp.wp_lp_l -> diagram.row_shaft_lp.wp_lp_r: "LP Shaft (10,000 rpm)" {
+  style: { stroke: "#D97706"; stroke-width: 2; stroke-dash: 2 }
+  target-arrowhead.shape: none
+}
+diagram.row_shaft_lp.wp_lp_r -> diagram.row_core.lpt: {
+  style: { stroke: "#D97706"; stroke-width: 2; stroke-dash: 2 }
+  target-arrowhead.shape: none
+}
