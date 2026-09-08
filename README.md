@@ -92,12 +92,9 @@ flowchart TD
         G["deck/*.csv<br/>cycle_deck_dry / _wet / _full_envelope"]
     end
 
-    H["pycycle/<br/>vendored OpenMDAO pyCycle elements, maps, thermo"]
-
     A --> C
     B --> C
     C --> D
-    D -.built on.-> H
     A --> E
     E --> C
     E --> G
