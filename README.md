@@ -1,5 +1,3 @@
-[![CI](https://github.com/Jhawk414/F404-pyCycle/actions/workflows/pycycle_test_workflow.yml/badge.svg)](https://github.com/Jhawk414/F404-pyCycle/actions)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](meta/LICENSE.txt)
 [![Status: In Development](https://img.shields.io/badge/status-in%20development-orange.svg)](https://github.com/Jhawk414/F404-pyCycle#current-status)
 [![Last Commit](https://img.shields.io/github/last-commit/Jhawk414/F404-pyCycle?logo=github)](https://github.com/Jhawk414/F404-pyCycle/commits/main)
 [![Open Issues](https://img.shields.io/github/issues/Jhawk414/F404-pyCycle?logo=github)](https://github.com/Jhawk414/F404-pyCycle/issues)
